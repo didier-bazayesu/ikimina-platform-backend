@@ -1,322 +1,98 @@
-# Gents Ikimina Investment Management System — Backend
+<p align="center">
+  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
 
-## 1. Overview
+[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
+[circleci-url]: https://circleci.com/gh/nestjs/nest
 
-Gents Ikimina Investment Management System digitizes the management of an
-Ikimina (a member-based savings/investment group): monthly contributions,
-penalties, withdrawals, transaction approvals, reports, and member
-statements.
+  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
+    <p align="center">
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
+<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
+<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
+<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
+<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
+<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
+  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
+    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
+  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+</p>
+  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
+  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
 
-The platform **does not process payments**. Members pay through external
-channels (mobile money, bank transfer, cash) and submit evidence of payment
-through the platform. An Admin reviews and approves or rejects that evidence.
-Only approved transactions affect the financial ledger.
+## Description
 
-## 2. Roles
+[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-There are exactly two roles. There is no Super Admin.
+## Project setup
 
-| Role | Can do |
-|---|---|
-| **MEMBER** | View own dashboard, submit contribution/penalty payments with proof, view own transaction history, view own penalties and missing months, download own statement, update own profile |
-| **ADMIN** | Manage members, approve/reject contributions and penalty payments, waive penalties, record withdrawals, generate reports, configure system settings, view audit logs |
-
-A member can never approve a transaction, edit another member, or view
-another member's records. Withdrawals use a **single-admin + audit log**
-model: the creating Admin's withdrawal is recorded immediately with a full
-audit trail rather than requiring a second approver.
-
-## 3. Core financial flow
-
-Every active member has a **monthly obligation** (a fixed amount, due by a
-fixed day each month). The obligation — not the raw payment — is the anchor
-for everything else in the system (missing months, penalties, dashboards,
-reports, statements).
-
-```
-Monthly obligation created (e.g. 20,000 RWF due the 7th)
-        │
-        ▼
-Member pays externally (MoMo / Bank / Cash)
-        │
-        ▼
-Member submits payment evidence
-  (amount, date, months covered, method, reference, proof file)
-        │
-        ▼
-ContributionPayment = PENDING
-        │
-        ▼
-Admin reviews evidence
-        │
-   ┌────┴────┐
-   ▼         ▼
-APPROVED   REJECTED (reason required)
-   │
-   ▼
-Obligation(s) marked PAID → ledger updated → dashboards/reports/statements reflect it
+```bash
+$ npm install
 ```
 
-In parallel, a daily scheduler enforces the due date:
+## Compile and run the project
 
-```
-Daily scheduler (Africa/Kigali time)
-        │
-        ▼
-For each active member, each unpaid obligation past the due day
-        │
-        ▼
-Penalty already generated for this obligation?
-        │
-   ┌────┴────┐
-  YES        NO
-   │          │
-   │          ▼
-   │     Generate penalty (idempotent — running the job twice never
-   │     creates a duplicate penalty for the same obligation)
-   │          │
-   └────┬─────┘
-        ▼
- Member notified
+```bash
+# development
+$ npm run start
+
+# watch mode
+$ npm run start:dev
+
+# production mode
+$ npm run start:prod
 ```
 
-Penalty payments follow the same submit → PENDING → Admin approve/reject
-flow as contributions. An Admin may also **waive** a penalty directly.
+## Run tests
 
-### Money handling rules
+```bash
+# unit tests
+$ npm run test
 
-- **Full months only.** A payment allocation for a given month must equal
-  the monthly share amount in effect when that obligation was created.
-  Partial-month payments are not supported.
-- **Multi-month payments are split.** A single payment (e.g. 60,000 RWF)
-  is stored as one `ContributionPayment` with multiple
-  `ContributionAllocation` rows (one per covered month), never as one
-  opaque lump sum.
-- **Historical values are immutable.** Changing a system setting (e.g. the
-  monthly share amount) today never retroactively changes a past month's
-  obligation. Each obligation snapshots the values that applied when it
-  was created.
-- **Available balance** is always calculated from approved records, never
-  stored as a running total on the member:
-  `Approved Contributions + Approved Penalty Payments − Approved Withdrawals`
+# e2e tests
+$ npm run test:e2e
 
-## 4. Tech stack
-
-| Layer | Choice |
-|---|---|
-| Runtime / Framework | Node.js, NestJS |
-| Database | PostgreSQL |
-| Database access | Raw `pg` client with hand-written SQL in repositories; `node-pg-migrate` for hand-written, auditable up/down schema migrations (no ORM) |
-| Auth | JWT (access + refresh), role-based guards |
-| File storage | Cloud object storage (S3 / Cloudinary) via a `storage` adapter in `persistence/`, same pattern as the database connection |
-| Email | SMTP via a `mail` adapter in `persistence/`, provider swappable later |
-| Scheduling | NestJS `@nestjs/schedule` (cron) |
-| API docs | Swagger / OpenAPI |
-| Testing | Jest (unit + e2e) |
-| Timezone | `Africa/Kigali` for all due-date and scheduler logic |
-
-## 5. Architecture — layer-first hexagonal (ports & adapters)
-
-The codebase is organized **by technical layer first, by feature second**,
-following the same pattern as the team's reference project
-(`c9-rptumba-storm-car-sharing-backend`). Every feature (e.g.
-`contribution`) has a folder inside `controller/` and `application/`.
-`persistence/` stays **flat** — one repository file per feature, no
-per-feature subfolders, matching the reference project exactly.
-
-**The dependency rule (non-negotiable):**
-- `controller/<feature>` depends only on `application/<feature>`'s
-  **service interface** — never the concrete service class directly.
-- `application/<feature>`'s service depends only on its own
-  **repository interface** — never on `persistence/`, the `pg` client, or
-  raw SQL.
-- `persistence/<feature>.repository.ts` implements that repository
-  interface and is the only place SQL is written for that feature.
-- Only the wiring file in `module/<feature>.module.ts` knows the concrete
-  classes on both sides and binds interface → implementation via NestJS DI.
-
-```
-controller/contribution/contribution.controller.ts
-        │  depends on (interface)
-        ▼
-application/contribution/contribution.service.interface.ts   ◄── implements ── contribution.service.ts
-                                                                                       │
-                                                                                       │  depends on (interface)
-                                                                                       ▼
-                                                              application/contribution/contribution.repository.interface.ts
-                                                                                       ▲
-                                                                                       │  implements
-                                                                            persistence/contribution.repository.ts (raw SQL)
+# test coverage
+$ npm run test:cov
 ```
 
-Both sides of every boundary are interfaces — this is what makes every
-layer independently unit-testable with a colocated `.mock.ts` test double,
-with no real database or HTTP server needed for `application/` tests.
+## Deployment
 
-## 6. Naming conventions
+When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
 
-**Database (PostgreSQL, raw SQL via `pg`)**
-- Table names: snake_case, plural — `members`, `contribution_payments`
-- Columns: snake_case — `member_id`, `payment_date`, `approved_by`
-- Migrations: `node-pg-migrate`, one hand-written SQL up/down file per
-  change, timestamp-prefixed, living in `/migrations` at the repo root
-- Status/type columns: stored as Postgres `enum` types or constrained
-  strings — mirrored by a TypeScript union or const object in
-  `application/<feature>/<feature>-status.ts`
+If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
 
-**Hexagonal layers — file naming**
-
-| File | Convention | Example |
-|---|---|---|
-| Domain entity | `<feature>.ts` | `application/member/member.ts` |
-| Value object / status enum | `<feature>-<aspect>.ts` | `application/contribution/contribution-status.ts` |
-| Outbound port (repository interface) | `<feature>.repository.interface.ts` | `application/member/member.repository.interface.ts` |
-| Outbound port test double | `<feature>.repository.mock.ts` | `application/member/member.repository.mock.ts` |
-| Inbound port (service interface) | `<feature>.service.interface.ts` | `application/member/member.service.interface.ts` |
-| Use case (service implementation) | `<feature>.service.ts` | `application/member/member.service.ts` |
-| Service test double | `<feature>.service.mock.ts` | `application/member/member.service.mock.ts` |
-| Unit test (colocated) | `<feature>.service.test.ts` | `application/member/member.service.test.ts` |
-| Integration test (colocated) | `<feature>.repository.integration-test.ts`, `<feature>.controller.integration-test.ts` | `persistence/member.repository.integration-test.ts` |
-| Domain error — feature-specific | `<feature>-<condition>.error.ts` (in the feature folder) | `application/member/member-not-found.error.ts` |
-| Domain error — generic/shared | `<condition>.error.ts` (at `application/` root) | `application/not-found.error.ts`, `application/access-denied.error.ts` |
-| Persistence adapter (flat, no subfolder) | `<feature>.repository.ts` | `persistence/contribution.repository.ts` |
-| Controller | `<feature>.controller.ts` | `controller/contribution/contribution.controller.ts` |
-| DTO(s) for a feature | `<feature>.dto.ts` | `controller/contribution/contribution.dto.ts` |
-| Cross-cutting exception filter | `<condition>.exception-filter.ts` (at `controller/` root) | `controller/not-found.exception-filter.ts` |
-| Guard / decorator (cross-cutting) | `<name>.guard.ts`, `<name>.decorator.ts` (at `controller/` root) | `controller/roles.guard.ts`, `controller/current-user.decorator.ts` |
-| Module wiring (logic-free) | `module/<feature>.module.ts` | `module/contribution.module.ts` |
-| Barrel export | `index.ts` in every folder | — |
-
-**General TypeScript**
-- Classes / interfaces / enums: PascalCase
-- Variables / functions / properties: camelCase
-- True constants only: UPPER_SNAKE_CASE (business rules live in
-  `SystemSettings`, not hardcoded constants)
-
-**API**
-- Routes: kebab-case, plural nouns, versioned — `/api/v1/contribution-payments`
-- Uniform response envelope: `{ success, data, message }`
-- Global exception filters (per condition, colocated in `controller/`) —
-  no ad-hoc error shapes per controller
-
-**Git / workflow**
-- Branches: `feature/IKM-<ticket>-short-desc`, `fix/IKM-<ticket>-short-desc`
-- Commits: [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `refactor:`, `test:`, `chore:`, `docs:`)
-- PR titles mirror the ticket: `[IKM-101] Add contribution payment approval endpoint`
-- **One ticket = one branch = one PR.** A PR merges only after lint passes, tests pass, and at least one review approval.
-- Minimum test coverage on `application/` services: 70% before merge.
-
-## 7. Project structure
-
-```
-src/
-├── main.ts                          # bootstrap
-├── main.module.ts                   # root module, imports everything in module/
-├── setup-app.ts                     # global pipes, filters, Swagger wiring
-│
-├── module/                          # NestJS wiring only — no logic
-│   ├── auth.module.ts
-│   ├── member.module.ts
-│   ├── contribution.module.ts
-│   ├── penalty.module.ts
-│   ├── withdrawal.module.ts
-│   ├── monthly-obligation.module.ts
-│   ├── system-settings.module.ts
-│   ├── transaction.module.ts
-│   ├── dashboard.module.ts
-│   ├── report.module.ts
-│   ├── statement.module.ts
-│   ├── notification.module.ts
-│   └── audit-log.module.ts
-│
-├── controller/
-│   ├── index.ts
-│   ├── current-user.decorator.ts
-│   ├── roles.decorator.ts
-│   ├── roles.guard.ts
-│   ├── authentication.guard.ts
-│   ├── authentication.guard.mock.ts
-│   ├── not-found.exception-filter.ts
-│   ├── access-denied.exception-filter.ts
-│   ├── authentication/
-│   ├── member/
-│   ├── contribution/
-│   ├── penalty/
-│   ├── withdrawal/
-│   ├── monthly-obligation/
-│   ├── system-settings/
-│   ├── transaction/
-│   ├── dashboard/
-│   ├── report/
-│   ├── statement/
-│   ├── notification/
-│   └── audit-log/
-│
-├── application/
-│   ├── index.ts
-│   ├── not-found.error.ts
-│   ├── access-denied.error.ts
-│   ├── time-provider.interface.ts   # injectable clock, makes due-date/penalty logic testable
-│   ├── time-provider.ts
-│   ├── time-provider.mock.ts
-│   ├── authentication/
-│   ├── member/
-│   ├── contribution/
-│   ├── penalty/
-│   ├── withdrawal/
-│   ├── monthly-obligation/
-│   ├── system-settings/
-│   ├── transaction/
-│   ├── dashboard/
-│   ├── report/
-│   ├── statement/
-│   ├── notification/
-│   └── audit-log/
-│
-├── persistence/                     # flat — one file per feature, no subfolders
-│   ├── index.ts
-│   ├── database-connection.ts
-│   ├── database-connection.interface.ts
-│   ├── database-connection.config.ts
-│   ├── database-connection.mock.ts
-│   ├── member.repository.ts
-│   ├── contribution.repository.ts
-│   ├── penalty.repository.ts
-│   ├── withdrawal.repository.ts
-│   ├── monthly-obligation.repository.ts
-│   ├── system-settings.repository.ts
-│   ├── transaction.repository.ts
-│   ├── report.repository.ts
-│   ├── notification.repository.ts
-│   ├── audit-log.repository.ts
-│   ├── storage.ts                   # S3/Cloudinary adapter, same pattern as database-connection
-│   ├── storage.interface.ts
-│   ├── storage.mock.ts
-│   ├── mail.ts                      # SMTP adapter
-│   ├── mail.interface.ts
-│   └── mail.mock.ts
-│
-├── helper/
-└── util/
-
-migrations/                          # node-pg-migrate, hand-written SQL up/down
-pgmigrate.config.json
+```bash
+$ npm install -g @nestjs/mau
+$ mau deploy
 ```
 
-## 8. Local setup
+With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
 
-> This section is filled in progressively as Sprint 0 tickets land.
+## Resources
 
-- [ ] Prerequisites (Node version, Docker)
-- [ ] Environment variables (`.env.example`)
-- [ ] `docker-compose up` for PostgreSQL
-- [ ] Run database migrations (`node-pg-migrate up`) & seed
-- [ ] Running the dev server
-- [ ] Running tests
-- [ ] Swagger URL
+Check out a few resources that may come in handy when working with NestJS:
 
-## 9. Out of scope for now
+- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
+- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
+- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
+- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
+- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
+- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
+- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
+- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
-Not built in the current roadmap (may be revisited later):
-mobile money/bank integration, WhatsApp bot, profit-sharing module,
-investment return tracking, native mobile apps.
+## Support
+
+Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+
+## Stay in touch
+
+- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
+- Website - [https://nestjs.com](https://nestjs.com/)
+- Twitter - [@nestframework](https://twitter.com/nestframework)
+
+## License
+
+Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
