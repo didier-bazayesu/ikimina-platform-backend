@@ -1,11 +1,15 @@
 import { vi } from 'vitest';
-import { IDatabaseConnection } from './database-connection.interface';
+import type { IDatabaseConnection, QueryFn } from './database-connection.interface';
 
 export const createDatabaseConnectionMock = (): IDatabaseConnection => ({
-  query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-  getClient: vi.fn().mockResolvedValue({
-    query: vi.fn().mockResolvedValue({ rows: [], rowCount: 0 }),
-    release: vi.fn(),
-  }),
+  query: vi.fn().mockResolvedValue([]),
+  transaction: vi
+    .fn()
+    .mockImplementation(
+      async (callback: (query: QueryFn) => Promise<unknown>) => {
+        const query: QueryFn = vi.fn().mockResolvedValue([]);
+        return callback(query);
+      },
+    ),
   close: vi.fn().mockResolvedValue(undefined),
 });

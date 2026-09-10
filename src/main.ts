@@ -1,8 +1,26 @@
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { configureGlobalEnhancers, configureOpenAPI } from './setup-app';
+import { MainModule } from './main.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+  const port = Number.parseInt(process.env.PORT || '3000');
+  const logger = new Logger();
+
+  const app = await NestFactory.create(MainModule, {
+    cors: true,
+  });
+
+  configureOpenAPI(app);
+  configureGlobalEnhancers(app);
+
+  await app.init();
+  await app.listen(port);
+
+  logger.log(`Server is listening on port ${port}`);
 }
-bootstrap();
+
+bootstrap().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

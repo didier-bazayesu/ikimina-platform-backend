@@ -1,12 +1,12 @@
 import { Inject } from '@nestjs/common';
-import { type HealthRepository } from './health.repository.interface.js';
-import { HealthService } from './health.service.interface.js';
+import { type HealthRepositoryInterface } from './health.repository.interface.js';
+import type { HealthServiceInterface } from './health.service.interface.js';
 import { HEALTH_REPOSITORY } from './health.tokens.js';
 
-export class HealthServiceImpl implements HealthService {
+export class HealthService implements HealthServiceInterface {
   constructor(
     @Inject(HEALTH_REPOSITORY)
-    private readonly healthRepository: HealthRepository,
+    private readonly healthRepository: HealthRepositoryInterface,
   ) {}
 
   async check(): Promise<boolean> {

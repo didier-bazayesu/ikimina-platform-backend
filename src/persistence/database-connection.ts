@@ -1,7 +1,12 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
-import { IDatabaseConnection } from './database-connection.interface';
-import { getDatabaseConfig } from './database-connection.config';
+import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import type  { ConfigService } from '@nestjs/config';
+import { Pool, type PoolClient } from 'pg';
+import type {
+  IDatabaseConnection,
+  QueryFn,
+} from './database-connection.interface';
+import type { EnvConfig } from '../config/env.schema';
 
 @Injectable()
 export class DatabaseConnection
@@ -9,34 +14,49 @@ export class DatabaseConnection
 {
   private pool!: Pool;
 
-  onModuleInit() {
-    const config = getDatabaseConfig();
+  constructor(private readonly configService: ConfigService<EnvConfig, true>) {}
+
+  onModuleInit(): void {
     this.pool = new Pool({
-      host: config.host,
-      port: config.port,
-      user: config.user,
-      password: config.password,
-      database: config.database,
-      max: config.maxConnections,
+      connectionString: this.configService.get('DATABASE_URL', { infer: true }),
+      ssl: { rejectUnauthorized: false }, // Neon requires SSL
+      max: this.configService.get('DB_MAX_CONNECTIONS', { infer: true }) ?? 10,
     });
   }
 
-  query<T extends QueryResultRow = any>(
-    queryText: string,
-    values?: any[],
-  ): Promise<QueryResult<T>> {
-    return this.pool.query<T>(queryText, values);
+  async query<T = any>(queryText: string, values: any[] = []): Promise<T[]> {
+    const result = await this.pool.query(queryText, values);
+    return result.rows;
   }
 
-  async getClient(): Promise<PoolClient> {
-    return await this.pool.connect();
+  async transaction<T>(callback: (query: QueryFn) => Promise<T>): Promise<T> {
+    const client: PoolClient = await this.pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const boundQuery: QueryFn = async (queryText, values = []) => {
+        const result = await client.query(queryText, values);
+        return result.rows;
+      };
+
+      const outcome = await callback(boundQuery);
+
+      await client.query('COMMIT');
+      return outcome;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async close(): Promise<void> {
     await this.pool.end();
   }
 
-  async onModuleDestroy() {
+  async onModuleDestroy(): Promise<void> {
     await this.close();
   }
 }

@@ -105,14 +105,14 @@ flow as contributions. An Admin may also **waive** a penalty directly.
 | Layer | Choice |
 |---|---|
 | Runtime / Framework | Node.js, NestJS |
-| Database | PostgreSQL |
-| Database access | Raw `pg` client with hand-written SQL in repositories; `node-pg-migrate` for hand-written, auditable up/down schema migrations (no ORM) |
+| Database | PostgreSQL, hosted on Neon — used for every environment (dev, test, CI, prod); no local Docker Postgres |
+| Database access | `pg.Pool` (standard `pg` package) over a normal Postgres connection to Neon's `DATABASE_URL`, with hand-written SQL in repositories. Deliberately **not** `@neondatabase/serverless`'s HTTP driver — that driver has no persistent session, so it can't support the multi-statement transactions and row-level locking this project's financial writes require (see README §5, `IDatabaseConnection.transaction()`). `node-pg-migrate` for hand-written, auditable up/down schema migrations (no ORM) |
 | Auth | JWT (access + refresh), role-based guards |
 | File storage | Cloud object storage (S3 / Cloudinary) via a `storage` adapter in `persistence/`, same pattern as the database connection |
 | Email | SMTP via a `mail` adapter in `persistence/`, provider swappable later |
 | Scheduling | NestJS `@nestjs/schedule` (cron) |
 | API docs | Swagger / OpenAPI |
-| Testing | Jest (unit + e2e) |
+| Testing | Vitest (unit + integration) |
 | Timezone | `Africa/Kigali` for all due-date and scheduler logic |
 
 ## 5. Architecture — layer-first hexagonal (ports & adapters)
@@ -152,6 +152,14 @@ application/contribution/contribution.service.interface.ts   ◄── implement
 Both sides of every boundary are interfaces — this is what makes every
 layer independently unit-testable with a colocated `.mock.ts` test double,
 with no real database or HTTP server needed for `application/` tests.
+
+**Transactional writes:** `IDatabaseConnection` (in `persistence/`)
+exposes `transaction<T>(callback)` alongside `query()` — any repository
+method that must write multiple rows atomically (e.g. IKM-5.1's payment +
+allocations, IKM-5.4's approval + obligation mark-paid) runs through
+`transaction()`, never through sequential unguarded `query()` calls. This
+requires a real persistent-connection Postgres driver (`pg.Pool`), which is
+why database access uses that rather than a stateless HTTP driver — see §4.
 
 ## 6. Naming conventions
 
@@ -307,12 +315,11 @@ pgmigrate.config.json
 
 > This section is filled in progressively as Sprint 0 tickets land.
 
-- [ ] Prerequisites (Node version, Docker)
-- [ ] Environment variables (`.env.example`)
-- [ ] `docker-compose up` for PostgreSQL
-- [ ] Run database migrations (`node-pg-migrate up`) & seed
+- [ ] Prerequisites (Node version)
+- [ ] Environment variables (`.env.example`) — `DATABASE_URL` points at a Neon project/branch; no local database service to start
+- [ ] Run database migrations (`node-pg-migrate up`) & seed, against the Neon `DATABASE_URL`
 - [ ] Running the dev server
-- [ ] Running tests
+- [ ] Running tests — uses a dedicated Neon branch for test isolation (see IKM-0.3)
 - [ ] Swagger URL
 
 ## 9. Out of scope for now

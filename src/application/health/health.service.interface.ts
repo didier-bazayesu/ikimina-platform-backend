@@ -1,3 +1,3 @@
-export interface HealthService {
+export interface HealthServiceInterface {
   check(): Promise<boolean>;
 }
