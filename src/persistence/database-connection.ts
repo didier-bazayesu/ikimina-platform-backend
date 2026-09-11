@@ -1,12 +1,11 @@
-import type { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
-import type  { ConfigService } from '@nestjs/config';
+import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Pool, type PoolClient } from 'pg';
-import type {
+import {
   IDatabaseConnection,
-  QueryFn,
+  type QueryFn,
 } from './database-connection.interface';
-import type { EnvConfig } from '../config/env.schema';
+import { EnvConfig } from '../config/env.schema';
 
 @Injectable()
 export class DatabaseConnection
@@ -24,6 +23,7 @@ export class DatabaseConnection
     });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pg driver boundary; result rows are only meaningfully typed by the caller via <T>
   async query<T = any>(queryText: string, values: any[] = []): Promise<T[]> {
     const result = await this.pool.query(queryText, values);
     return result.rows;
@@ -53,6 +53,9 @@ export class DatabaseConnection
   }
 
   async close(): Promise<void> {
+    if (!this.pool) {
+      return;
+    }
     await this.pool.end();
   }
 

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { HealthService } from './health.service.js';
-import { HealthRepositoryMock } from '../../persistence/health.repository.mock.js';
+import { describe, expect, it } from 'vitest';
+import { HealthService } from './health.service';
+import { HealthRepositoryMock } from '../../persistence/health.repository.mock';
 
 describe('HealthService', () => {
   it('should return true when the repository reports healthy', async () => {

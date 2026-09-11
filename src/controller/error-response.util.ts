@@ -21,7 +21,9 @@ export function logException(
   stack?: string,
 ): void {
   const context = `[${request.method}] ${request.url} - ${statusCode}`;
-  statusCode >= 500
-    ? logger.error(context, stack)
-    : logger.warn(`${context}: ${message}`);
+  if (statusCode >= 500) {
+    logger.error(context, stack);
+  } else {
+    logger.warn(`${context}: ${message}`);
+  }
 }

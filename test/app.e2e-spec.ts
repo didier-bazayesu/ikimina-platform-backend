@@ -3,25 +3,31 @@ import { Test } from '@nestjs/testing';
 import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type { App } from 'supertest/types';
-import { AppModule } from '../src/main.module';
+import { configureGlobalEnhancers } from '../src/setup-app';
+import { HealthModule } from '../src/module/health.module';
 
-describe('AppController (e2e)', () => {
+describe('Health endpoint (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
+      imports: [HealthModule],
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    configureGlobalEnhancers(app);
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  it('/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/health')
       .expect(200)
-      .expect('Hello World!');
+      .expect({
+        success: true,
+        data: { status: 'ok' },
+        message: 'Success',
+      });
   });
 
   afterEach(async () => {

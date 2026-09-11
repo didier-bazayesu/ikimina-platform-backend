@@ -8,6 +8,7 @@ import {
   HttpExceptionFilter,
   UnhandledExceptionFilter,
 } from './controller';
+import { ResponseInterceptor } from './controller/response.interceptor';
 
 export function configureOpenAPI(app: INestApplication): INestApplication {
   const config = new DocumentBuilder()
@@ -19,7 +20,7 @@ export function configureOpenAPI(app: INestApplication): INestApplication {
       bearerFormat: 'JWT',
     })
     .build();
- const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
   return app;
@@ -30,6 +31,7 @@ export function configureGlobalEnhancers(
 ): INestApplication {
   return (
     app
+      .useGlobalInterceptors(new ResponseInterceptor())
       .useGlobalPipes(
         new ValidationPipe({
           transform: true,

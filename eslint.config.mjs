@@ -1,35 +1,50 @@
-// @ts-check
-import eslint from '@eslint/js';
-import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
-import globals from 'globals';
+// eslint.config.js
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
+  { ignores: ['dist/**', 'node_modules/**'] },
+  ...tseslint.configs.recommended,
   {
-    ignores: ['eslint.config.mjs'],
-  },
-  eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
-  eslintPluginPrettierRecommended,
-  {
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        ...globals.jest,
-      },
-      sourceType: 'commonjs',
-      parserOptions: {
-        projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
+    files: ['**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': 'error',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
   {
+    // application/ must never reach into real persistence/ or pg directly
+    files: ['src/application/**/*.ts'],
+    ignores: ['src/application/**/*.test.ts'],
     rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-unsafe-argument': 'warn',
-      "prettier/prettier": ["error", { endOfLine: "auto" }],
+      'no-restricted-imports': ['error', {
+        paths: [{ name: 'pg', message: 'application/ must depend on a repository interface, not pg directly.' }],
+        patterns: [{
+          group: ['**/persistence/**', '*/persistence/*'],
+          message: 'application/ must depend on a repository interface, not persistence/ directly.',
+        }],
+      }],
+    },
+  },
+  {
+    // test files ARE allowed to import *.mock.ts from persistence/ —
+    // that's the intended test-double pattern. Still block real pg access.
+    files: ['src/application/**/*.test.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{ name: 'pg', message: 'Tests must use a mock, not a real pg connection.' }],
+      }],
+    },
+  },
+  {
+    files: ['src/controller/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [
+          { group: ['**/persistence/**', '*/persistence/*'], message: 'controller/ must never import persistence/ directly.' },
+          { group: ['**/*.service'], message: 'controller/ must depend on the *.service.interface.ts, not the concrete service class.' },
+        ],
+      }],
     },
   },
 );
