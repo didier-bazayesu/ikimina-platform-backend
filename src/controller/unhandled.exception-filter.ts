@@ -1,11 +1,5 @@
-import type {
-  ArgumentsHost,
-  ExceptionFilter} from '@nestjs/common';
-import {
-  Catch,
-  HttpStatus,
-  Logger,
-} from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
+import { Catch, HttpStatus, Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { buildErrorResponse, logException } from './error-response.util';
 
@@ -32,9 +26,15 @@ export class UnhandledExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
     const statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-
-    const stack = exception instanceof Error ? exception.stack : String(exception);
-    logException(this.logger, request, statusCode, 'Unhandled exception', stack);
+    const stack =
+      exception instanceof Error ? exception.stack : String(exception);
+    logException(
+      this.logger,
+      request,
+      statusCode,
+      'Unhandled exception',
+      stack,
+    );
 
     response
       .status(statusCode)
