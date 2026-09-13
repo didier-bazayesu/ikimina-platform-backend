@@ -40,16 +40,15 @@ export function configureGlobalEnhancers(
           forbidUnknownValues: true,
         }),
       )
-      // Order matters: most specific first, catch-all last. NestJS matches
-      // @Catch() filters against a thrown exception's type — a broader
-      // filter registered earlier would swallow exceptions a more specific
-      // filter further down was meant to handle.
+      // Nest resolves custom filters in reverse registration order. Register
+      // the catch-all first so typed filters get the first chance to handle
+      // their exceptions.
       .useGlobalFilters(
-        new NotFoundExceptionFilter(),
-        new AccessDeniedExceptionFilter(),
-        new ValidationExceptionFilter(),
-        new HttpExceptionFilter(),
         new UnhandledExceptionFilter(),
+        new HttpExceptionFilter(),
+        new ValidationExceptionFilter(),
+        new AccessDeniedExceptionFilter(),
+        new NotFoundExceptionFilter(),
       )
       .enableShutdownHooks()
   );
