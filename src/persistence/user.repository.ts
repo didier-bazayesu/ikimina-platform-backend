@@ -62,4 +62,14 @@ export class UserRepository implements UserRepositoryInterface {
     );
     return rows[0] ? toDomain(rows[0]) : null;
   }
+
+  async updatePasswordHash(
+    userId: string,
+    passwordHash: string,
+  ): Promise<void> {
+    await this.db.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
+      passwordHash,
+      userId,
+    ]);
+  }
 }

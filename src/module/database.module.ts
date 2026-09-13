@@ -2,6 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { DatabaseConnection } from '../persistence/database-connection';
 import { DATABASE_CONNECTION } from '../persistence/database-connection.interface';
 
+export { DATABASE_CONNECTION } from '../persistence/database-connection.interface';
+
 @Global()
 @Module({
   providers: [

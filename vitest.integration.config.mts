@@ -11,6 +11,7 @@ export default defineConfig({
     environment: 'node',
     globals: false,
     pool: 'vmForks',
+    setupFiles: ['./vitest.integration.setup.ts'],
     testTimeout: 30_000, // Network round-trips to Neon can be slow
     reporters: ['verbose'],
   },

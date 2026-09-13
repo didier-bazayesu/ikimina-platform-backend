@@ -5,4 +5,5 @@ export const createUserRepositoryMock = (): UserRepositoryInterface => ({
   create: vi.fn(),
   findByEmail: vi.fn().mockResolvedValue(null),
   findById: vi.fn().mockResolvedValue(null),
+  updatePasswordHash: vi.fn(),
 });

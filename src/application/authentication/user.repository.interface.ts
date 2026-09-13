@@ -11,6 +11,7 @@ export interface UserRepositoryInterface {
   create(input: CreateUserInput): Promise<User>;
   findByEmail(email: string): Promise<User | null>;
   findById(id: string): Promise<User | null>;
+  updatePasswordHash(userId: string, passwordHash: string): Promise<void>;
 }
 
 // Runtime token value for NestJS Dependency Injection
