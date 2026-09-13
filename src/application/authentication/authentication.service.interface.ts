@@ -1,4 +1,4 @@
-import { type UserRole } from './user';
+import { type Role } from './user';
 
 export interface LoginResult {
   accessToken: string;
@@ -6,7 +6,7 @@ export interface LoginResult {
   user: {
     id: string;
     email: string;
-    role: UserRole;
+    role: Role;
   };
 }
 

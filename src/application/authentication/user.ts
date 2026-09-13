@@ -1,4 +1,4 @@
-export type UserRole = 'MEMBER' | 'ADMIN';
+export type Role = 'MEMBER' | 'ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'EXITED';
 
 export interface User {
@@ -6,7 +6,7 @@ export interface User {
   email: string;
   phone: string;
   passwordHash: string;
-  role: UserRole;
+  role: Role;
   status: UserStatus;
   joinedDate: Date;
   createdAt: Date;

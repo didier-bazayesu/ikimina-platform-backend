@@ -1,10 +1,10 @@
-import { User, UserRole } from './user';
+import { User, Role } from './user';
 
 export interface CreateUserInput {
   email: string;
   phone: string;
   passwordHash: string;
-  role: UserRole;
+  role: Role;
 }
 
 export interface UserRepositoryInterface {
