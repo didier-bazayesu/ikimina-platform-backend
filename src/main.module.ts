@@ -3,6 +3,7 @@ import { HealthModule } from './module/health.module';
 import { DatabaseModule } from './module/database.module';
 import { AppConfigModule } from './module/app-config.module';
 import { AuthenticationModule } from './module/authentication.module';
+import { MemberModule } from './module/member.module';
 
 @Module({
   imports: [
@@ -10,6 +11,7 @@ import { AuthenticationModule } from './module/authentication.module';
     DatabaseModule,
     AppConfigModule,
     AuthenticationModule,
+    MemberModule,
   ],
 })
 export class MainModule {}
