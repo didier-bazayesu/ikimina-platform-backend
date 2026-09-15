@@ -1,5 +1,8 @@
 import { vi } from 'vitest';
-import type { IDatabaseConnection, QueryFn } from './database-connection.interface';
+import type {
+  IDatabaseConnection,
+  QueryFn,
+} from './database-connection.interface';
 
 export const createDatabaseConnectionMock = (): IDatabaseConnection => ({
   query: vi.fn().mockResolvedValue([]),

@@ -12,6 +12,16 @@ export const envSchema = z.object({
   // for why (multi-statement transactions / row locking).
   DATABASE_URL: z.string().url(),
   DB_MAX_CONNECTIONS: z.coerce.number().default(10),
+
+  // JWT — IKM-1.3 (login, signing) and IKM-1.4 (guard, verification)
+  JWT_ACCESS_SECRET: z
+    .string()
+    .min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_REFRESH_SECRET: z
+    .string()
+    .min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
+  JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
