@@ -1,4 +1,4 @@
-import type { ArgumentsHost, ExceptionFilter} from '@nestjs/common';
+import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { BadRequestException, Catch, HttpStatus, Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { logException } from './error-response.util';
@@ -12,11 +12,17 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
     const body = exception.getResponse() as { message: string | string[] };
-
-    logException(this.logger, request, HttpStatus.BAD_REQUEST, exception.message);
+    logException(
+      this.logger,
+      request,
+      HttpStatus.BAD_REQUEST,
+      exception.message,
+    );
     response.status(HttpStatus.BAD_REQUEST).json({
       success: false,
-      message: Array.isArray(body.message) ? body.message.join(', ') : body.message,
+      message: Array.isArray(body.message)
+        ? body.message.join(', ')
+        : body.message,
       error: 'ValidationError',
     });
   }
