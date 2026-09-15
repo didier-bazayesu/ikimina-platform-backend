@@ -27,6 +27,12 @@ import { RolesGuard } from 'src/controller/roles.guard';
     JwtAuthGuard,
     RolesGuard,
   ],
-  exports: [USER_REPOSITORY, PASSWORD_HASHER, JwtAuthGuard, RolesGuard],
+  exports: [
+    USER_REPOSITORY,
+    PASSWORD_HASHER,
+    JwtAuthGuard,
+    RolesGuard,
+    JwtModule,
+  ],
 })
 export class AuthenticationModule {}
