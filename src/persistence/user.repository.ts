@@ -5,7 +5,7 @@ import {
   CreateUserInput,
   UserRepositoryInterface,
 } from '../application/authentication/user.repository.interface';
-import { User } from '../application/authentication/user';
+import { User, UserStatus } from '../application/authentication/user';
 
 interface UserRow {
   id: string;
@@ -55,6 +55,14 @@ export class UserRepository implements UserRepositoryInterface {
     return rows[0] ? toDomain(rows[0]) : null;
   }
 
+  async findByPhone(phone: string): Promise<User | null> {
+    const rows = await this.db.query<UserRow>(
+      `SELECT * FROM users WHERE phone = $1`,
+      [phone],
+    );
+    return rows[0] ? toDomain(rows[0]) : null;
+  }
+
   async findById(id: string): Promise<User | null> {
     const rows = await this.db.query<UserRow>(
       `SELECT * FROM users WHERE id = $1`,
@@ -69,6 +77,20 @@ export class UserRepository implements UserRepositoryInterface {
   ): Promise<void> {
     await this.db.query(`UPDATE users SET password_hash = $1 WHERE id = $2`, [
       passwordHash,
+      userId,
+    ]);
+  }
+
+  async updatePhone(userId: string, phone: string): Promise<void> {
+    await this.db.query(`UPDATE users SET phone = $1 WHERE id = $2`, [
+      phone,
+      userId,
+    ]);
+  }
+
+  async updateStatus(userId: string, status: UserStatus): Promise<void> {
+    await this.db.query(`UPDATE users SET status = $1 WHERE id = $2`, [
+      status,
       userId,
     ]);
   }
