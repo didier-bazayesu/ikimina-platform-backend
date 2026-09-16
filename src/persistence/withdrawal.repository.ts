@@ -20,7 +20,6 @@ interface WithdrawalRow {
   supporting_doc_url: string | null;
   created_by: string;
   created_at: string;
-  updated_at: string;
   creator_name?: string;
 }
 
@@ -35,7 +34,6 @@ function toWithdrawalDomain(row: WithdrawalRow): Withdrawal {
     supportingDocUrl: row.supporting_doc_url || undefined,
     createdBy: row.created_by,
     createdAt: new Date(row.created_at),
-    updatedAt: new Date(row.updated_at),
     creatorName: row.creator_name,
   };
 }
@@ -55,7 +53,7 @@ export class WithdrawalRepository implements WithdrawalRepositoryInterface {
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *
        )
-       SELECT i.*, u.first_name || ' ' || u.last_name AS creator_name
+       SELECT i.*, u.email AS creator_name
        FROM inserted i
        JOIN users u ON i.created_by = u.id`,
       [
@@ -101,7 +99,7 @@ export class WithdrawalRepository implements WithdrawalRepositoryInterface {
 
     params.push(limit, offset);
     const rows = await this.db.query<WithdrawalRow>(
-      `SELECT w.*, u.first_name || ' ' || u.last_name AS creator_name
+      `SELECT w.*, u.email AS creator_name
        FROM withdrawals w
        JOIN users u ON w.created_by = u.id
        ${where}

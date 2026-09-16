@@ -1,11 +1,10 @@
 #!/bin/bash
-set -e
 
 API_URL="http://localhost:3000"
 
 echo "1. BOOTSTRAP (Admin login)"
 ADMIN_LOGIN_RES=$(curl -s -X POST "$API_URL/auth/login" -H "Content-Type: application/json" -d '{"email":"didier@gmail.com","password":"didier123"}')
-ADMIN_TOKEN=$(echo $ADMIN_LOGIN_RES | grep -o '"access_token":"[^"]*' | grep -o '[^"]*$')
+ADMIN_TOKEN=$(echo $ADMIN_LOGIN_RES | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
 if [ -z "$ADMIN_TOKEN" ]; then
   echo "Admin login failed!"
@@ -21,7 +20,7 @@ curl -s -X POST "$API_URL/withdrawals" \
   -H "Content-Type: application/json" \
   -d '{
     "amount": 15000,
-    "withdrawalDate": "2026-09-17",
+    "withdrawalDate": "2026-09-10",
     "beneficiary": "Test Member",
     "category": "PAYOUT",
     "description": "Test payout withdrawal"

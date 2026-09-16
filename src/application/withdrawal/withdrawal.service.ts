@@ -1,23 +1,17 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import type { Withdrawal } from './withdrawal';
-import {
+import type {
   WithdrawalServiceInterface,
   RecordWithdrawalParams,
   ListWithdrawalsParams,
   ListWithdrawalsResponse,
 } from './withdrawal.service.interface';
-import {
-  WithdrawalRepositoryInterface,
-  WITHDRAWAL_REPOSITORY,
-} from './withdrawal.repository.interface';
-import {
-  StorageAdapterInterface,
-  STORAGE_ADAPTER,
-} from '../common/storage.interface';
-import {
-  TimeProviderInterface,
-  TIME_PROVIDER,
-} from '../common/time-provider.interface';
+import type { WithdrawalRepositoryInterface } from './withdrawal.repository.interface';
+import { WITHDRAWAL_REPOSITORY } from './withdrawal.repository.interface';
+import type { StorageAdapterInterface } from '../common/storage.interface';
+import { STORAGE_ADAPTER } from '../common/storage.interface';
+import type { TimeProviderInterface } from '../common/time-provider.interface';
+import { TIME_PROVIDER } from '../common/time-provider.interface';
 
 @Injectable()
 export class WithdrawalService implements WithdrawalServiceInterface {
@@ -32,12 +26,13 @@ export class WithdrawalService implements WithdrawalServiceInterface {
 
   async recordWithdrawal(params: RecordWithdrawalParams): Promise<Withdrawal> {
     if (params.amount <= 0) {
-      throw new Error('Amount must be greater than zero');
+      throw new BadRequestException('Amount must be greater than zero');
     }
 
     const now = this.timeProvider.now();
-    if (params.withdrawalDate > now) {
-      throw new Error('Withdrawal date cannot be in the future');
+    const wDate = new Date(params.withdrawalDate);
+    if (wDate > now) {
+      throw new BadRequestException('Withdrawal date cannot be in the future');
     }
 
     let supportingDocUrl: string | undefined;
@@ -45,12 +40,12 @@ export class WithdrawalService implements WithdrawalServiceInterface {
     if (params.file) {
       const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
       if (!allowedMimeTypes.includes(params.file.mimetype)) {
-        throw new Error('Invalid file type');
+        throw new BadRequestException('Invalid file type');
       }
 
       const maxSize = 5 * 1024 * 1024; // 5MB
       if (params.file.buffer.length > maxSize) {
-        throw new Error('File size exceeds the limit');
+        throw new BadRequestException('File size exceeds the limit');
       }
 
       supportingDocUrl = await this.storageAdapter.upload(params.file);
@@ -58,7 +53,7 @@ export class WithdrawalService implements WithdrawalServiceInterface {
 
     return this.repository.create({
       amount: params.amount,
-      withdrawalDate: params.withdrawalDate,
+      withdrawalDate: wDate,
       beneficiary: params.beneficiary,
       category: params.category,
       description: params.description,
@@ -76,14 +71,14 @@ export class WithdrawalService implements WithdrawalServiceInterface {
     if (params.startDate) {
       startDate = new Date(params.startDate);
       if (isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+        throw new BadRequestException('Invalid start date');
       }
     }
 
     if (params.endDate) {
       endDate = new Date(params.endDate);
       if (isNaN(endDate.getTime())) {
-        throw new Error('Invalid end date');
+        throw new BadRequestException('Invalid end date');
       }
     }
 
