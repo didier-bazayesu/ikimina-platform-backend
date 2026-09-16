@@ -41,14 +41,16 @@ export class MonthlyObligationController {
   @Roles('ADMIN')
   @ApiOperation({
     summary:
-      'FOR TESTING ONLY: Force generate obligations for the current period',
+      'FOR TESTING ONLY: Force generate obligations for a given period (defaults to current month)',
   })
-  async generateTest() {
+  async generateTest(
+    @Query('month') month?: string,
+    @Query('year') year?: string,
+  ) {
     const d = new Date();
-    await this.service.generateObligationsForPeriod(
-      d.getMonth() + 1,
-      d.getFullYear(),
-    );
+    const targetMonth = month ? parseInt(month, 10) : d.getMonth() + 1;
+    const targetYear = year ? parseInt(year, 10) : d.getFullYear();
+    await this.service.generateObligationsForPeriod(targetMonth, targetYear);
     return { success: true, message: 'Test generation complete' };
   }
 

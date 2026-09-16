@@ -7,6 +7,7 @@ import { AuthenticationModule } from './module/authentication.module';
 import { MemberModule } from './module/member.module';
 import { SystemSettingsModule } from './module/system-settings.module';
 import { MonthlyObligationModule } from './module/monthly-obligation.module';
+import { ContributionModule } from './module/contribution.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { MonthlyObligationModule } from './module/monthly-obligation.module';
     MemberModule,
     SystemSettingsModule,
     MonthlyObligationModule,
+    ContributionModule,
   ],
 })
 export class MainModule {}
