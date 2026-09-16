@@ -1,0 +1,248 @@
+import {
+  Inject,
+  Injectable,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
+import type {
+  ContributionServiceInterface,
+  SubmitContributionPaymentParams,
+  ListContributionPaymentsParams,
+  ListContributionPaymentsResponse,
+} from './contribution.service.interface';
+import type { ContributionRepositoryInterface } from './contribution.repository.interface';
+import { CONTRIBUTION_REPOSITORY } from './contribution.repository.interface';
+import type { MonthlyObligationRepositoryInterface } from '../monthly-obligation/monthly-obligation.repository.interface';
+import { MONTHLY_OBLIGATION_REPOSITORY } from '../monthly-obligation/monthly-obligation.repository.interface';
+import type { StorageAdapterInterface } from '../common/storage.interface';
+import { STORAGE_ADAPTER } from '../common/storage.interface';
+import type { ContributionPayment } from './contribution-payment';
+import type { MonthlyObligation } from '../monthly-obligation/monthly-obligation';
+
+@Injectable()
+export class ContributionService implements ContributionServiceInterface {
+  private readonly logger = new Logger(ContributionService.name);
+
+  constructor(
+    @Inject(CONTRIBUTION_REPOSITORY)
+    private readonly repository: ContributionRepositoryInterface,
+    @Inject(MONTHLY_OBLIGATION_REPOSITORY)
+    private readonly obligationRepo: MonthlyObligationRepositoryInterface,
+    @Inject(STORAGE_ADAPTER)
+    private readonly storageAdapter: StorageAdapterInterface,
+  ) {}
+
+  async submitPayment(
+    params: SubmitContributionPaymentParams,
+  ): Promise<ContributionPayment> {
+    if (!params.obligationIds || params.obligationIds.length === 0) {
+      throw new BadRequestException(
+        'At least one obligationId must be provided',
+      );
+    }
+
+    if (!params.paymentDate || isNaN(params.paymentDate.getTime())) {
+      throw new BadRequestException('Invalid payment date');
+    }
+
+    if (params.paymentDate > new Date()) {
+      throw new BadRequestException('Payment date cannot be in the future');
+    }
+
+    if (
+      (params.method === 'MOMO' || params.method === 'BANK') &&
+      (!params.reference || !params.reference.trim())
+    ) {
+      throw new BadRequestException(
+        `Reference is required for payment method ${params.method}`,
+      );
+    }
+
+    if (!params.file) {
+      throw new BadRequestException('Proof file is required');
+    }
+
+    const allowedMimeTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'application/pdf',
+    ];
+    if (
+      params.file.mimetype &&
+      !allowedMimeTypes.includes(params.file.mimetype)
+    ) {
+      throw new BadRequestException(
+        'Proof file must be an image (JPEG, PNG, WEBP) or PDF',
+      );
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (params.file.buffer && params.file.buffer.length > maxSize) {
+      throw new BadRequestException('Proof file size must not exceed 10MB');
+    }
+
+    // Fetch and validate targeted obligations
+    const obligations: MonthlyObligation[] = [];
+    for (const obId of params.obligationIds) {
+      const ob = await this.obligationRepo.list({ page: 1, limit: 10000 });
+      const found = ob.items.find((item) => item.id === obId);
+
+      if (!found) {
+        throw new NotFoundException(`Obligation ${obId} not found`);
+      }
+      if (found.memberId !== params.memberId) {
+        throw new NotFoundException(
+          `Obligation ${obId} does not belong to the caller`,
+        );
+      }
+      if (found.status !== 'UNPAID') {
+        throw new BadRequestException(`Obligation ${obId} is already paid`);
+      }
+
+      obligations.push(found);
+    }
+
+    // Verify same currency
+    const firstCurrency = obligations[0].currency;
+    const mixedCurrency = obligations.some(
+      (ob) => ob.currency !== firstCurrency,
+    );
+    if (mixedCurrency) {
+      throw new BadRequestException(
+        'Targeted obligations span more than one currency',
+      );
+    }
+
+    // Verify exact amount sum
+    const totalExpected = obligations.reduce(
+      (sum, ob) => sum + ob.expectedAmount,
+      0,
+    );
+    if (Math.abs(params.amount - totalExpected) > 0.01) {
+      throw new BadRequestException(
+        `Submitted amount (${params.amount}) does not match total expected amount (${totalExpected})`,
+      );
+    }
+
+    // Check existing pending/approved allocations
+    for (const ob of obligations) {
+      const existingAlloc =
+        await this.repository.findPendingOrApprovedAllocationForObligation(
+          ob.id,
+        );
+      if (existingAlloc) {
+        throw new ConflictException(
+          `Obligation ${ob.id} already has a PENDING or APPROVED allocation`,
+        );
+      }
+    }
+
+    // Upload proof file
+    const proofUrl = await this.storageAdapter.upload(params.file);
+
+    // Create payment with allocations (repository handles the transaction internally)
+    const allocations = obligations.map((ob) => ({
+      monthlyObligationId: ob.id,
+      amount: ob.expectedAmount,
+    }));
+
+    return this.repository.createPaymentWithAllocations({
+      memberId: params.memberId,
+      amount: params.amount,
+      paymentDate: params.paymentDate,
+      method: params.method,
+      reference: params.reference,
+      notes: params.notes,
+      proofUrl,
+      allocations,
+    });
+  }
+
+  async listPayments(
+    params: ListContributionPaymentsParams,
+  ): Promise<ListContributionPaymentsResponse> {
+    const page = Math.max(params.page ?? 1, 1);
+    const limit = Math.min(params.limit ?? 20, 100);
+
+    const result = await this.repository.list({
+      status: params.status,
+      memberId: params.memberId,
+      page,
+      limit,
+    });
+
+    return {
+      items: result.items,
+      page,
+      limit,
+      total: result.total,
+    };
+  }
+
+  async getMyPayments(
+    memberId: string,
+    params: ListContributionPaymentsParams,
+  ): Promise<ListContributionPaymentsResponse> {
+    return this.listPayments({ ...params, memberId });
+  }
+
+  async approvePayment(
+    id: string,
+    adminUserId: string,
+  ): Promise<ContributionPayment> {
+    const payment = await this.repository.findById(id);
+    if (!payment) {
+      throw new NotFoundException(`Payment ${id} not found`);
+    }
+
+    if (payment.status !== 'PENDING') {
+      throw new ConflictException(`Payment ${id} is not currently PENDING`);
+    }
+
+    // Repository handles the full atomic operation: approve + mark obligations PAID
+    const approvedPayment = await this.repository.approveAndMarkObligationsPaid(
+      id,
+      adminUserId,
+    );
+
+    if (!approvedPayment) {
+      throw new ConflictException(`Failed to approve payment ${id}`);
+    }
+
+    return approvedPayment;
+  }
+
+  async rejectPayment(
+    id: string,
+    reason: string,
+    adminUserId: string,
+  ): Promise<ContributionPayment> {
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
+    const payment = await this.repository.findById(id);
+    if (!payment) {
+      throw new NotFoundException(`Payment ${id} not found`);
+    }
+
+    if (payment.status !== 'PENDING') {
+      throw new ConflictException(`Payment ${id} is not currently PENDING`);
+    }
+
+    const rejectedPayment = await this.repository.markRejected(
+      id,
+      reason.trim(),
+      adminUserId,
+    );
+
+    if (!rejectedPayment) {
+      throw new ConflictException(`Failed to reject payment ${id}`);
+    }
+
+    return rejectedPayment;
+  }
+}
