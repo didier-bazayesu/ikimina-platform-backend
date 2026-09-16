@@ -10,6 +10,7 @@ import { MonthlyObligationModule } from './module/monthly-obligation.module';
 import { ContributionModule } from './module/contribution.module';
 import { PenaltyModule } from './module/penalty.module';
 import { WithdrawalModule } from './module/withdrawal.module';
+import { TransactionModule } from './module/transaction.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { WithdrawalModule } from './module/withdrawal.module';
     ContributionModule,
     PenaltyModule,
     WithdrawalModule,
+    TransactionModule,
   ],
 })
 export class MainModule {}
