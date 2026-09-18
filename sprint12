@@ -1,0 +1,99 @@
+Sprint 12 — Notifications
+
+This sprint builds the internal event-driven communication engine. State changes in the system (e.g. an Admin approving a payment) will emit internal events that generate persisted notifications for Members.
+
+IKM-12.1 — Event Emitter & Notifications Schema
+
+Goal
+
+Establish the foundational schema and event-bus pattern for internal decoupling.
+
+Description
+
+Create the notifications table and configure NestJS @nestjs/event-emitter. Define the standard payload interfaces for core domain events (e.g., PaymentApprovedEvent).
+
+Requirements + Why
+
+RequirementWhy it's required
+
+
+
+notifications migration
+
+Need a persistent store for in-app alerts so users see them upon logging in, regardless of email delivery.
+
+@nestjs/event-emitter
+
+Decouples the Admin controllers (e.g., ContributionController) from the Notification logic. Admin controllers shouldn't block waiting for emails to send.
+
+Schema definition
+
+id: uuid PK
+
+user_id: uuid FK -> users(id)
+
+type: varchar (e.g. PAYMENT_APPROVED, PENALTY_GENERATED)
+
+title: varchar
+
+message: text
+
+is_read: boolean default false
+
+created_at: timestamptz
+
+Acceptance Criteria
+
+ notifications table created.
+
+ Event emitter module registered in MainModule.
+
+ Core services (Contributions, Penalties) updated to emit events via this.eventEmitter.emit() instead of directly calling notification logic.
+
+IKM-12.2 — Notification Endpoints & Handlers
+
+User Story
+
+As a Member, I want to see a list of my alerts and mark them as read, so I am always aware of my standing and recent payment approvals.
+
+API Endpoints
+
+GET /api/v1/notifications/me
+
+PATCH /api/v1/notifications/me/:id/read
+
+Request & Responses
+
+GET /notifications/me
+
+Supports ?unreadOnly=true pagination.
+
+Returns 200 OK with an array of notification objects.
+
+PATCH /notifications/me/:id/read
+
+Returns 200 OK.
+
+Authorization
+
+@UseGuards(JwtAuthGuard). Available to both MEMBER and ADMIN (though primarily used by members). A user can only fetch and mark their own notifications as read.
+
+Internal Event Handlers
+
+Create a NotificationListener service equipped with @OnEvent() decorators:
+
+payment.approved: Creates a notification for the member.
+
+penalty.generated: Creates a notification for the member.
+
+Bonus: Uses console.log('Mock Email sent to:', user.email) to simulate external email integration.
+
+Acceptance Criteria
+
+ GET endpoint accurately returns the authenticated user's notifications.
+
+ PATCH endpoint safely marks the notification as read.
+
+ PATCH returns 404 if the notification doesn't exist or belongs to another user.
+
+ Admin actions (approving a payment) successfully trigger the asynchronous creation of a notification row.
