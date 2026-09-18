@@ -1,0 +1,39 @@
+Sprint 14 — Hardening
+
+IKM-14.1 — Security & Resilience
+
+Goal
+
+Protect the application from brute-force attacks, misconfigurations, and standard web vulnerabilities before deploying to production.
+
+Description
+
+Introduce fundamental security middleware and strict rate limiting.
+
+Acceptance Criteria
+
+ Install and configure helmet globally in main.ts for secure HTTP headers.
+
+ Configure enableCors() in main.ts with strict origin rules (read from env configuration).
+
+ Implement @nestjs/throttler.
+
+ Apply strict rate limits globally (e.g., 100 requests per minute).
+
+ Apply ultra-strict rate limits specifically on POST /auth/login (e.g., 5 requests per minute per IP) to prevent password guessing.
+
+IKM-14.2 — Database Indexes & Final Walkthrough
+
+Goal
+
+Guarantee dashboard and reporting performance at scale, and verify the entire end-to-end system.
+
+Description
+
+Analyze the query patterns generated in Sprints 1-10 and write a final SQL migration to apply B-Tree indexes to heavily queried foreign keys and status columns. Finally, execute an integration script simulating a full month lifecycle.
+
+Acceptance Criteria
+
+ Migration created adding indexes to: members(user_id), monthly_obligations(member_id, status), contribution_payments(member_id, status, payment_date), penalties(member_id, status).
+
+ test-full-platform-flow.sh script is provided that: logs in as admin, creates a member, generates an obligation, submits a payment as member, approves the payment as admin, and finally fetches the member's statement, confirming a 200 OK at every single step.
