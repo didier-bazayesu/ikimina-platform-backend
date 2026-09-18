@@ -13,6 +13,7 @@ import { WithdrawalModule } from './module/withdrawal.module';
 import { TransactionModule } from './module/transaction.module';
 import { DashboardModule } from './module/dashboard.module';
 import { ReportModule } from './module/report.module';
+import { StatementModule } from './module/statement.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ReportModule } from './module/report.module';
     TransactionModule,
     DashboardModule,
     ReportModule,
+    StatementModule,
   ],
 })
 export class MainModule {}
