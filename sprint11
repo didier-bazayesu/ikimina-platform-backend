@@ -1,0 +1,141 @@
+Sprint 11 — Statements
+
+This sprint delivers the ability for a Member to extract a consolidated, official record of their financial history with the Ikimina platform, formatted as a downloadable PDF.
+
+IKM-11.1 — GET /statements/me (Member PDF Statement)
+
+Goal
+
+Provide members with a bank-like statement of their account activity, building on the unified transaction ledger from Sprint 8.
+
+Description
+
+Implement the /statements/me endpoint. It leverages the existing TransactionRepository to fetch a timeline of the authenticated member's charges (obligations, penalties) and credits (payments), and uses the ExportService (from Sprint 10) to format the data into a professional PDF.
+
+API Endpoint
+
+GET /api/v1/statements/me Generates a downloadable PDF or JSON statement for the current member.
+
+Query Parameters
+
+StatementQueryDTO:
+
+startDate (ISO 8601 string, optional)
+
+endDate (ISO 8601 string, optional)
+
+format (string, enum: ['json', 'pdf'], default: 'json')
+
+Successful Response (JSON)
+
+Status: 200 OK Content-Type: application/json Response Body:
+
+json
+
+svgsvg
+
+{
+
+"success": true,
+
+"data": {
+
+"member": { "name": "...", "number": "..." },
+
+"period": { "start": "...", "end": "..." },
+
+"openingBalance": 0,
+
+"closingBalance": 25000,
+
+"transactions": [
+
+{ "date": "...", "description": "Monthly Obligation", "amount": -25000, "runningBalance": -25000 },
+
+{ "date": "...", "description": "Contribution Payment", "amount": 25000, "runningBalance": 0 }
+
+]
+
+},
+
+"message": "Success"
+
+}
+
+Successful Response (PDF)
+
+Status: 200 OK Content-Type: application/pdf Content-Disposition: attachment; filename="statement.pdf" (A binary PDF stream generated via pdfkit)
+
+Possible Responses
+
+StatusDescription
+
+
+
+200
+
+Statement generated successfully
+
+400
+
+Invalid date format in query params
+
+401
+
+Missing or invalid access token
+
+403
+
+Role is not MEMBER
+
+500
+
+Unexpected PDF generation error
+
+Authorization
+
+@UseGuards(JwtAuthGuard, RolesGuard) with @Roles('MEMBER'). The identity (memberId) is strictly inferred from @CurrentUser() linking to the members table. A member cannot request another member's statement.
+
+Input Validation
+
+startDate and endDate: Must be valid dates, and endDate must be ≥ startDate.
+
+Flow
+
+Authenticate request and verify MEMBER role.
+
+Resolve memberId from the authenticated userId.
+
+Fetch chronological timeline using TransactionRepository.getMemberTimeline(memberId, dates).
+
+Calculate a running balance (credits - charges) over the timeline.
+
+If format === 'pdf', utilize ExportService to write the header, member details, tabular transaction rows, and closing balance into a PDF buffer.
+
+Return JSON or stream the PDF buffer.
+
+Acceptance Criteria
+
+Endpoint & Logic
+
+ Returns 200 with chronological transaction history.
+
+ Correctly calculates opening and closing running balances.
+
+ Returns a valid PDF binary stream when format=pdf.
+
+Authorization
+
+ ADMIN role is denied (403) — Admins have Reports (Sprint 10); this is strictly a Member feature.
+
+ Request parameters cannot specify a memberId; identity is locked to the JWT.
+
+Code Quality
+
+ PDF generation reuses the ExportService from Sprint 10 rather than reinventing a local PDF generator.
+
+ No linting errors or warnings.
+
+Dependencies
+
+IKM-8.1 (Unified Ledger), IKM-10.1 (ExportService)
