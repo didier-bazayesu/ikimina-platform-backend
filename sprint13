@@ -1,0 +1,53 @@
+Sprint 13 — Audit Logs
+
+IKM-13.1 — Global Admin Audit Trail
+
+Goal
+
+Provide immutable traceability for all state-changing administrative actions to ensure complete financial accountability.
+
+Description
+
+Implement an audit_logs table and an Interceptor or Service hook that captures the userId, the target entity, and the before/after state of the database row when critical changes occur.
+
+Schema definition
+
+id: uuid PK
+
+admin_user_id: uuid FK -> users(id)
+
+action_type: varchar (e.g., APPROVE_CONTRIBUTION, WAIVE_PENALTY)
+
+entity_name: varchar
+
+entity_id: uuid
+
+old_state: jsonb
+
+new_state: jsonb
+
+created_at: timestamptz
+
+API Endpoint
+
+GET /api/v1/audit-logs
+
+Authorization
+
+@UseGuards(JwtAuthGuard, RolesGuard) with @Roles('ADMIN').
+
+Implementation Constraints
+
+The audit log creation must run in the same database transaction as the mutation itself. If the payment approval rolls back, the audit log must roll back.
+
+This requires injecting the AuditService into the respective Repositories so that it can be appended via this.db.transaction().
+
+Acceptance Criteria
+
+ Migration creates the audit_logs table utilizing jsonb columns for state snapshots.
+
+ Approving a payment records exactly one row mapping the admin's ID, the payment ID, and the status change {'status': 'PENDING'} -> {'status': 'APPROVED'}.
+
+ GET /audit-logs successfully paginates the ledger for Admins.
+
+ Audit insertions respect the unit-of-work/transaction boundary.
