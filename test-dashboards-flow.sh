@@ -22,6 +22,7 @@ echo -e "\n"
 # 3. Member login
 echo -e "\nLogging in as Member..."
 MEMBER_EMAIL="dash.member.$(date +%s)@example.com"
+MEMBER_PHONE="+25078$(date +%s%N | tail -c 7)"
 MEMBER_PASSWORD="Password123!"
 
 curl -sS -X POST "$BASE_URL/members" \

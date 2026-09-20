@@ -6,6 +6,7 @@ BASE_URL=${BASE_URL:-"http://localhost:3000"}
 TEST_EMAIL=${TEST_EMAIL:-"didier@gmail.com"}
 TEST_PASSWORD=${TEST_PASSWORD:-"didier123"}
 MEMBER_EMAIL="postman.member.$(date +%s)@example.com"
+MEMBER_PHONE="+25078$(date +%s%N | tail -c 7)"
 MEMBER_PASSWORD="Password123!"
 
 echo "== BOOTSTRAP -- Admin & Member Login =="

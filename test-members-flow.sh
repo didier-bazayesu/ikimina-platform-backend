@@ -9,8 +9,16 @@ set -uo pipefail
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-didier@gmail.com}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-didier123}"
-MEMBER_EMAIL="${MEMBER_EMAIL:-test.member.sprint2@example.com}"
-MEMBER_PASSWORD="${MEMBER_PASSWORD:-TempPass123!}"
+
+RND=$RANDOM
+MEMBER_EMAIL="test.member.sprint2.$RND@example.com"
+MEMBER_PASSWORD="TempPass123!"
+PHONE_MAIN="+250781$RND"
+PHONE_DUP="+250782$RND"
+PHONE_OTHER="+250783$RND"
+PHONE_NO_EMAIL="+250784$RND"
+EMAIL_X="x_$RND@x.com"
+EMAIL_UNIQUE="unique_$RND@x.com"
 
 PASS_COUNT=0
 FAIL_COUNT=0
@@ -65,7 +73,7 @@ section "IKM-2.2 -- POST /members"
 # No auth -> 401
 resp=$(curl -sS -w '\n%{http_code}' -X POST "$BASE_URL/members" \
   -H 'Content-Type: application/json' \
-  -d '{"email":"x@x.com","phone":"+250780000099","fullName":"X","password":"Pass1234!"}')
+  -d "$(printf '{"email":"%s","phone":"%s","fullName":"X","password":"Pass1234!"}' "$EMAIL_X" "$PHONE_OTHER")")
 split_status "$resp"
 assert_status "POST /members no auth -> 401" 401
 
@@ -73,7 +81,7 @@ assert_status "POST /members no auth -> 401" 401
 resp=$(curl -sS -w '\n%{http_code}' -X POST "$BASE_URL/members" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d "$(printf '{"email":"%s","phone":"+250781111111","fullName":"Test Member A","password":"%s"}' "$MEMBER_EMAIL" "$MEMBER_PASSWORD")")
+  -d "$(printf '{"email":"%s","phone":"%s","fullName":"Test Member A","password":"%s"}' "$MEMBER_EMAIL" "$PHONE_MAIN" "$MEMBER_PASSWORD")")
 split_status "$resp"
 assert_status "POST /members creates member (201)" 201
 [ "$STATUS" != "201" ] && abort "Member creation failed -- cannot continue member tests."
@@ -83,7 +91,7 @@ MEMBER_A_ID=$(extract_field "$BODY" id)
 resp=$(curl -sS -w '\n%{http_code}' -X POST "$BASE_URL/members" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d "$(printf '{"email":"%s","phone":"+250781111999","fullName":"Dup","password":"Pass1234!"}' "$MEMBER_EMAIL")")
+  -d "$(printf '{"email":"%s","phone":"%s","fullName":"Dup","password":"Pass1234!"}' "$MEMBER_EMAIL" "$PHONE_DUP")")
 split_status "$resp"
 assert_status "POST /members duplicate email -> 409" 409
 
@@ -91,7 +99,7 @@ assert_status "POST /members duplicate email -> 409" 409
 resp=$(curl -sS -w '\n%{http_code}' -X POST "$BASE_URL/members" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"email":"unique9@x.com","phone":"+250781111111","fullName":"Dup2","password":"Pass1234!"}')
+  -d "$(printf '{"email":"%s","phone":"%s","fullName":"Dup2","password":"Pass1234!"}' "$EMAIL_UNIQUE" "$PHONE_MAIN")")
 split_status "$resp"
 assert_status "POST /members duplicate phone -> 409" 409
 
@@ -99,7 +107,7 @@ assert_status "POST /members duplicate phone -> 409" 409
 resp=$(curl -sS -w '\n%{http_code}' -X POST "$BASE_URL/members" \
   -H 'Content-Type: application/json' \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
-  -d '{"phone":"+250781111222","fullName":"No Email","password":"Pass1234!"}')
+  -d "$(printf '{"phone":"%s","fullName":"No Email","password":"Pass1234!"}' "$PHONE_NO_EMAIL")")
 split_status "$resp"
 assert_status "POST /members missing email -> 400" 400
 

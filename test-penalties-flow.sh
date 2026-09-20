@@ -5,6 +5,7 @@ BASE_URL=${BASE_URL:-"http://localhost:3000"}
 TEST_EMAIL=${TEST_EMAIL:-"didier@gmail.com"}
 TEST_PASSWORD=${TEST_PASSWORD:-"didier123"}
 MEMBER_EMAIL="penalty.member.$(date +%s)@example.com"
+MEMBER_PHONE="+25078$(date +%s%N | tail -c 7)"
 MEMBER_PASSWORD="Password123!"
 
 echo "== BOOTSTRAP =="
@@ -67,7 +68,7 @@ fi
 
 echo ""
 echo "== 6. PATCH /penalties/:id/waive (Admin) =="
-PENALTY_ID=$(echo "$BODY" | grep -o '"id":"[^"]*' | head -n1 | cut -d'"' -f4)
+PENALTY_ID=$(echo "$RESP" | sed '$d' | grep -o '"id":"[^"]*' | head -n1 | cut -d'"' -f4)
 
 if [ -n "$PENALTY_ID" ]; then
   RESP=$(curl -sS -w '\n%{http_code}' -X PATCH "$BASE_URL/penalties/$PENALTY_ID/waive" -H "Authorization: Bearer $ADMIN_TOKEN")

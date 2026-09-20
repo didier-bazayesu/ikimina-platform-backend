@@ -19,10 +19,17 @@ fi
 echo "Admin Token: ${ADMIN_TOKEN:0:30}..."
 
 echo "-----------------------------------------------------"
-echo "2. Logging in as member..."
+MEMBER_EMAIL="audit.member.$(date +%s)@example.com"
+echo "2. Creating a member..."
+curl -s -X POST "$BASE_URL/members" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$MEMBER_EMAIL\",\"phone\":\"+25078$(date +%s%N | tail -c 7)\",\"fullName\":\"Audit Test Member\",\"password\":\"Password123!\"}" > /dev/null
+
+echo "3. Logging in as member..."
 MEMBER_LOGIN=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"state.member@example.com","password":"Password123!"}')
+  -d "{\"email\":\"$MEMBER_EMAIL\",\"password\":\"Password123!\"}")
 MEMBER_TOKEN=$(echo "$MEMBER_LOGIN" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
 if [ -z "$MEMBER_TOKEN" ]; then

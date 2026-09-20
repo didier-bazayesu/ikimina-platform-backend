@@ -8,11 +8,14 @@ ADMIN_TOKEN=$(curl -s -X POST http://localhost:3000/auth/login \
 
 echo "Admin Token: $ADMIN_TOKEN"
 
+MEMBER_EMAIL="state.member.$(date +%s)@example.com"
+MEMBER_PHONE="+25078$(date +%s%N | tail -c 7)"
+
 echo "Creating a member..."
 MEMBER_ID=$(curl -s -X POST http://localhost:3000/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"email":"state.member@example.com","phone":"+250781111111","fullName":"Statement Member","password":"Password123!"}' | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+  -d "{\"email\":\"$MEMBER_EMAIL\",\"phone\":\"$MEMBER_PHONE\",\"fullName\":\"Statement Member\",\"password\":\"Password123!\"}" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
 
 echo "Member ID: $MEMBER_ID"
 
@@ -24,7 +27,7 @@ fi
 echo "Logging in as member..."
 MEMBER_TOKEN=$(curl -s -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"state.member@example.com","password":"Password123!"}' | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
+  -d "{\"email\":\"$MEMBER_EMAIL\",\"password\":\"Password123!\"}" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
 if [ -z "$MEMBER_TOKEN" ]; then
     echo "Attempting to login as admin if member login fails..."
