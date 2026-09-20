@@ -52,6 +52,8 @@ describe('ContributionService', () => {
       repoMock,
       obligationRepoMock,
       storageMock,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      { emit: () => true } as any,
     );
   });
 

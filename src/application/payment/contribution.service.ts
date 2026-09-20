@@ -21,6 +21,8 @@ import { STORAGE_ADAPTER } from '../common/storage.interface';
 import type { ContributionPayment } from './contribution-payment';
 import type { MonthlyObligation } from '../monthly-obligation/monthly-obligation';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class ContributionService implements ContributionServiceInterface {
   private readonly logger = new Logger(ContributionService.name);
@@ -32,6 +34,7 @@ export class ContributionService implements ContributionServiceInterface {
     private readonly obligationRepo: MonthlyObligationRepositoryInterface,
     @Inject(STORAGE_ADAPTER)
     private readonly storageAdapter: StorageAdapterInterface,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async submitPayment(
@@ -211,6 +214,11 @@ export class ContributionService implements ContributionServiceInterface {
     if (!approvedPayment) {
       throw new ConflictException(`Failed to approve payment ${id}`);
     }
+
+    this.eventEmitter.emit('payment.approved', {
+      memberId: approvedPayment.memberId,
+      amount: approvedPayment.amount,
+    });
 
     return approvedPayment;
   }
