@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { HealthModule } from './module/health.module';
 import { DatabaseModule } from './module/database.module';
 import { AppConfigModule } from './module/app-config.module';
@@ -14,10 +15,12 @@ import { TransactionModule } from './module/transaction.module';
 import { DashboardModule } from './module/dashboard.module';
 import { ReportModule } from './module/report.module';
 import { StatementModule } from './module/statement.module';
+import { NotificationModule } from './module/notification.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    EventEmitterModule.forRoot(),
     HealthModule,
     DatabaseModule,
     AppConfigModule,
@@ -32,6 +35,7 @@ import { StatementModule } from './module/statement.module';
     DashboardModule,
     ReportModule,
     StatementModule,
+    NotificationModule,
   ],
 })
 export class MainModule {}
