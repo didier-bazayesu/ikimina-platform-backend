@@ -16,7 +16,8 @@ export interface SubmitContributionPaymentParams {
   method: ContributionMethod;
   reference?: string;
   notes?: string;
-  file: FileInput;
+  proofUrl?: string;
+  file?: FileInput;
 }
 
 export interface ListContributionPaymentsParams {

@@ -60,6 +60,14 @@ export class SubmitContributionPaymentDto {
   @IsString()
   reference?: string;
 
+  @ApiProperty({
+    description: 'URL of uploaded proof of payment image',
+    example: 'http://localhost:3000/uploads/proof-123.jpg',
+  })
+  @IsNotEmpty()
+  @IsString()
+  proofUrl!: string;
+
   @ApiPropertyOptional({
     description: 'Optional notes or description',
     example: 'Paid via MoMo',

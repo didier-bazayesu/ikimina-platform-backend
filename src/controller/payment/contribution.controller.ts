@@ -70,8 +70,8 @@ export class ContributionController {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     @UploadedFile() file: any,
   ) {
-    if (!file) {
-      throw new BadRequestException('Proof file is required');
+    if (!file && !dto.proofUrl) {
+      throw new BadRequestException('Proof file or proofUrl is required');
     }
 
     const member = await this.memberRepo.findByUserId(user.id);
@@ -91,11 +91,14 @@ export class ContributionController {
       method: dto.method,
       reference: dto.reference,
       notes: dto.notes,
-      file: {
-        originalname: file.originalname || 'proof.pdf',
-        buffer: file.buffer || Buffer.from(''),
-        mimetype: file.mimetype || 'application/pdf',
-      },
+      proofUrl: dto.proofUrl,
+      file: file
+        ? {
+            originalname: file.originalname || 'proof.pdf',
+            buffer: file.buffer || Buffer.from(''),
+            mimetype: file.mimetype || 'application/pdf',
+          }
+        : undefined,
     });
 
     return {

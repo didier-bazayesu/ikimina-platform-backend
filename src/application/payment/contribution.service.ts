@@ -63,28 +63,30 @@ export class ContributionService implements ContributionServiceInterface {
       );
     }
 
-    if (!params.file) {
-      throw new BadRequestException('Proof file is required');
+    if (!params.proofUrl && !params.file) {
+      throw new BadRequestException('Proof file or proofUrl is required');
     }
 
-    const allowedMimeTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'application/pdf',
-    ];
-    if (
-      params.file.mimetype &&
-      !allowedMimeTypes.includes(params.file.mimetype)
-    ) {
-      throw new BadRequestException(
-        'Proof file must be an image (JPEG, PNG, WEBP) or PDF',
-      );
-    }
+    if (params.file) {
+      const allowedMimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'application/pdf',
+      ];
+      if (
+        params.file.mimetype &&
+        !allowedMimeTypes.includes(params.file.mimetype)
+      ) {
+        throw new BadRequestException(
+          'Proof file must be an image (JPEG, PNG, WEBP) or PDF',
+        );
+      }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    if (params.file.buffer && params.file.buffer.length > maxSize) {
-      throw new BadRequestException('Proof file size must not exceed 10MB');
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (params.file.buffer && params.file.buffer.length > maxSize) {
+        throw new BadRequestException('Proof file size must not exceed 10MB');
+      }
     }
 
     // Fetch and validate targeted obligations
@@ -143,8 +145,11 @@ export class ContributionService implements ContributionServiceInterface {
       }
     }
 
-    // Upload proof file
-    const proofUrl = await this.storageAdapter.upload(params.file);
+    // Upload proof file or use provided proofUrl
+    let proofUrl = params.proofUrl;
+    if (!proofUrl && params.file) {
+      proofUrl = await this.storageAdapter.upload(params.file);
+    }
 
     // Create payment with allocations (repository handles the transaction internally)
     const allocations = obligations.map((ob) => ({
@@ -159,7 +164,7 @@ export class ContributionService implements ContributionServiceInterface {
       method: params.method,
       reference: params.reference,
       notes: params.notes,
-      proofUrl,
+      proofUrl: proofUrl!,
       allocations,
     });
   }

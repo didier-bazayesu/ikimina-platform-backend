@@ -17,11 +17,15 @@ import { ReportModule } from './module/report.module';
 import { StatementModule } from './module/statement.module';
 import { NotificationModule } from './module/notification.module';
 import { AuditLogModule } from './module/audit-log.module';
+import { UploadModule } from './module/upload.module';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     HealthModule,
     DatabaseModule,
     AppConfigModule,
@@ -38,6 +42,13 @@ import { AuditLogModule } from './module/audit-log.module';
     StatementModule,
     NotificationModule,
     AuditLogModule,
+    UploadModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class MainModule {}

@@ -25,6 +25,8 @@ import { JwtAuthGuard } from '../authentication.guard';
 import type { AuthenticatedUser } from '../authentication.guard';
 import { CurrentUser } from '../current-user.decorator';
 
+import { Throttle } from '@nestjs/throttler';
+
 @Controller('auth')
 @ApiTags('authentication')
 export class AuthenticationController {
@@ -34,6 +36,7 @@ export class AuthenticationController {
   ) {}
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   async login(@Body() dto: LoginDto) {
     return this.authenticationService.login(dto.email, dto.password);
