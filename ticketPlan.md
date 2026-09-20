@@ -380,3 +380,8 @@ lint + test only
 ### Code Quality
 
 - [ ] Pipeline run time kept reasonable (no unnecessary steps blocking every PR)
+
+11 — Statements PDF export Member statement generation
+12 — Notifications Communication Reminder, penalty-generated, approved/rejected events; email + in-app
+13 — Audit Logs Traceability Log all state-changing admin actions
+14 — Hardening Production readiness Rate limiting, indexes, security review, test coverage pass

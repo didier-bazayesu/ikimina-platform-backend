@@ -5,6 +5,7 @@ import {
   IsOptional,
   IsDateString,
   MinLength,
+  Length,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
@@ -17,6 +18,7 @@ export class CreateMemberDto {
   @ApiProperty({ example: '+250788123456' })
   @IsString()
   @IsNotEmpty()
+  @Length(3, 100)
   phone!: string;
 
   @ApiProperty({ example: 'Alice Doe' })

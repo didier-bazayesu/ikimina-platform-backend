@@ -61,15 +61,7 @@ export class MemberController {
   })
   @ApiResponse({ status: 500, description: 'Unexpected error' })
   async createMember(@Body() dto: CreateMemberDto) {
-    const member = await this.memberService.createMember({
-      email: dto.email,
-      phone: dto.phone,
-      password: dto.password,
-      fullName: dto.fullName,
-      nationalId: dto.nationalId,
-      address: dto.address,
-      joinedDate: dto.joinedDate,
-    });
+    const member = await this.memberService.createMember(dto);
     return { data: member, message: 'Member created successfully' };
   }
 
