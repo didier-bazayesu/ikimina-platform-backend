@@ -44,7 +44,7 @@ export class PenaltyService implements PenaltyServiceInterface {
     private readonly timeProvider: TimeProviderInterface,
   ) {}
 
-  async generatePenaltiesForOverdueObligations(): Promise<void> {
+  async generatePenaltiesForOverdueObligations(): Promise<Penalty[]> {
     const settings = await this.settingsRepo.getCurrent();
     const obligationsResult = await this.obligationRepo.list({
       status: 'UNPAID',
@@ -52,25 +52,26 @@ export class PenaltyService implements PenaltyServiceInterface {
       limit: 10000,
     });
 
-    let generatedCount = 0;
+    const generatedPenalties: Penalty[] = [];
     for (const ob of obligationsResult.items) {
       if (this.timeProvider.isOverdue(ob.year, ob.month, settings.dueDay)) {
         const existingPenalty =
           await this.penaltyRepo.findPenaltyByObligationId(ob.id);
         if (!existingPenalty) {
           const amount = ob.expectedAmount * (settings.penaltyPercentage / 100);
-          await this.penaltyRepo.createPenalty({
+          const penalty = await this.penaltyRepo.createPenalty({
             memberId: ob.memberId,
             monthlyObligationId: ob.id,
             amount,
           });
-          generatedCount++;
+          generatedPenalties.push(penalty);
         }
       }
     }
     this.logger.log(
-      `Generated ${generatedCount} penalties for overdue obligations.`,
+      `Generated ${generatedPenalties.length} penalties for overdue obligations.`,
     );
+    return generatedPenalties;
   }
 
   async submitPenaltyPayment(

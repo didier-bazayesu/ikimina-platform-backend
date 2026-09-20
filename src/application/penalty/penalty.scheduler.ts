@@ -3,6 +3,8 @@ import { Cron } from '@nestjs/schedule';
 import type { PenaltyServiceInterface } from './penalty.service.interface';
 import { PENALTY_SERVICE } from './penalty.service.interface';
 
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
 @Injectable()
 export class PenaltyScheduler {
   private readonly logger = new Logger(PenaltyScheduler.name);
@@ -10,6 +12,7 @@ export class PenaltyScheduler {
   constructor(
     @Inject(PENALTY_SERVICE)
     private readonly service: PenaltyServiceInterface,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   // Run daily at 01:00 Africa/Kigali time
@@ -17,7 +20,15 @@ export class PenaltyScheduler {
   async handleCron() {
     this.logger.log('Executing daily penalty generation');
     try {
-      await this.service.generatePenaltiesForOverdueObligations();
+      const generatedPenalties =
+        await this.service.generatePenaltiesForOverdueObligations();
+      for (const penalty of generatedPenalties) {
+        this.eventEmitter.emit('penalty.generated', {
+          memberId: penalty.memberId,
+          amount: penalty.amount,
+          monthlyObligationId: penalty.monthlyObligationId,
+        });
+      }
     } catch (error) {
       this.logger.error(
         `Failed penalty generation: ${(error as Error).message}`,

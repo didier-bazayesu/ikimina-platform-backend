@@ -44,7 +44,7 @@ export interface ListPenaltyPaymentsResponse {
 }
 
 export interface PenaltyServiceInterface {
-  generatePenaltiesForOverdueObligations(): Promise<void>;
+  generatePenaltiesForOverdueObligations(): Promise<Penalty[]>;
   submitPenaltyPayment(
     params: SubmitPenaltyPaymentParams,
   ): Promise<PenaltyPayment>;
