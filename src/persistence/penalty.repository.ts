@@ -302,6 +302,19 @@ export class PenaltyRepository implements PenaltyRepositoryInterface {
         [payment.penalty_id],
       );
 
+      await query(
+        `INSERT INTO audit_logs (admin_user_id, action_type, entity_name, entity_id, old_state, new_state)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          reviewedBy,
+          'APPROVE_PENALTY_PAYMENT',
+          'penalty_payments',
+          id,
+          JSON.stringify({ status: 'PENDING' }),
+          JSON.stringify({ status: 'APPROVED' }),
+        ],
+      );
+
       const rows = await query<PenaltyPaymentRow>(
         `SELECT pp.*, m.member_number, m.full_name
          FROM penalty_payments pp

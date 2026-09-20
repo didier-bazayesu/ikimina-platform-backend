@@ -16,6 +16,7 @@ import { DashboardModule } from './module/dashboard.module';
 import { ReportModule } from './module/report.module';
 import { StatementModule } from './module/statement.module';
 import { NotificationModule } from './module/notification.module';
+import { AuditLogModule } from './module/audit-log.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { NotificationModule } from './module/notification.module';
     ReportModule,
     StatementModule,
     NotificationModule,
+    AuditLogModule,
   ],
 })
 export class MainModule {}
