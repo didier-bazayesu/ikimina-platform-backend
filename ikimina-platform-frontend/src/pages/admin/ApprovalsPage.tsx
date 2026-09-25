@@ -162,6 +162,7 @@ export function ApprovalsPage() {
     enabled: filter === 'ALL',
   })
 
+  const [approvingCard, setApprovingCard] = useState<Card | null>(null)
   const approveMutation = useMutation({
     mutationFn: async (card: Card) => {
       setActing({ key: card.key, action: 'approve' })
@@ -180,7 +181,10 @@ export function ApprovalsPage() {
     onError: (err: any, card) => {
       toast.error(err?.message || `Failed to approve ${card.memberName}'s payment.`)
     },
-    onSettled: () => setActing(null),
+    onSettled: () => {
+      setActing(null)
+      setApprovingCard(null)
+    },
   })
 
   const rejectMutation = useMutation({
@@ -439,7 +443,7 @@ export function ApprovalsPage() {
                           if (r?.trim()) rejectMutation.mutate({ card, reason: r.trim() })
                         }}
                         disabled={isBusy}
-                        className="px-4 py-2 rounded-lg border border-terracotta text-terracotta font-bold text-sm hover:bg-terracotta/10 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[90px] justify-center"
+                        className="cursor-pointer px-4 py-2 rounded-lg border border-terracotta text-terracotta font-bold text-sm hover:bg-terracotta/10 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[90px] justify-center"
                       >
                         {isRejecting ? (
                           <div className="w-4 h-4 border-2 border-terracotta/30 border-t-terracotta rounded-full animate-spin" />
@@ -447,13 +451,13 @@ export function ApprovalsPage() {
                           <><span className="text-base leading-none">&times;</span> Reject</>
                         )}
                       </button>
-                      <button className="px-4 py-2 rounded-lg border border-border-warm text-text-main font-bold text-sm hover:bg-black/5 transition-colors">
+                      <button className="cursor-pointer px-4 py-2 rounded-lg border border-border-warm text-text-main font-bold text-sm hover:bg-black/5 transition-colors">
                         Flag &amp; message
                       </button>
                       <button
-                        onClick={() => approveMutation.mutate(card)}
+                        onClick={() => setApprovingCard(card)}
                         disabled={isBusy}
-                        className="px-6 py-2 rounded-lg bg-brand-green text-white font-bold text-sm hover:bg-brand-green/90 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[110px] justify-center"
+                        className="cursor-pointer px-6 py-2 rounded-lg bg-brand-green text-white font-bold text-sm hover:bg-brand-green/90 transition-colors disabled:opacity-40 flex items-center gap-1.5 min-w-[110px] justify-center"
                       >
                         {isApproving ? (
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -482,6 +486,80 @@ export function ApprovalsPage() {
               </button>
             </div>
           )}
+        </div>
+      )}
+      
+      {/* Approval Modal */}
+      {approvingCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-border-warm w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="w-12 h-12 rounded-full bg-green-tint text-brand-green flex items-center justify-center shrink-0 border border-brand-green/20">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-xl font-heading font-bold text-text-main">
+                    Approve this {approvingCard.type === 'CONTRIBUTION' ? 'contribution' : 'penalty'}?
+                  </h3>
+                  <p className="text-sm text-text-muted">
+                    {approvingCard.memberName || 'Unknown'} · {formatNumber(approvingCard.totalAmount)} RWF
+                  </p>
+                </div>
+              </div>
+
+              {approvingCard.type === 'CONTRIBUTION' && approvingCard.contribution && (
+                <div className="bg-[#FFFDF9] rounded-xl p-5 border border-[#F2EFE8] mb-6 shadow-sm">
+                  <p className="text-[10px] font-bold tracking-wider uppercase text-text-muted mb-3">
+                    Will be allocated to
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    {approvingCard.contribution.allocations.map(alloc => (
+                      <div key={alloc.id} className="flex justify-between items-center text-sm font-medium text-text-main">
+                        <span>{alloc.month && alloc.year ? `${MONTH_NAMES[alloc.month - 1]} ${alloc.year}` : 'Unknown Period'}</span>
+                        <span className="text-terracotta">{formatNumber(alloc.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-3 border-t border-[#E8E4DA] flex items-center gap-2 text-sm font-bold text-brand-green">
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>+{approvingCard.contribution.allocations.length} shares</span>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-text-muted leading-relaxed mb-8">
+                This updates the member's balance and the group fund, and is recorded in the audit log. It can't be undone — corrections need an adjusting entry.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setApprovingCard(null)}
+                  disabled={approveMutation.isPending}
+                  className="cursor-pointer flex-1 px-4 py-3 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => approveMutation.mutate(approvingCard)}
+                  disabled={approveMutation.isPending}
+                  className="cursor-pointer flex-1 px-4 py-3 rounded-xl bg-brand-green text-white font-bold hover:bg-brand-green/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {approveMutation.isPending ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span>✓</span> Approve transaction
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
