@@ -71,7 +71,7 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
             </p>
           </div>
         </div>
-        <Button variant="secondary" className="whitespace-nowrap bg-brand-green/10 text-brand-green border-0 hover:bg-brand-green/20">
+        <Button variant="outline" className="whitespace-nowrap bg-brand-green/10 text-brand-green border-0 hover:bg-brand-green/20">
           Record on behalf
         </Button>
       </div>
