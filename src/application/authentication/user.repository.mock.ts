@@ -4,6 +4,9 @@ import { UserRepositoryInterface } from './user.repository.interface';
 export const createUserRepositoryMock = (): UserRepositoryInterface => ({
   create: vi.fn(),
   findByEmail: vi.fn().mockResolvedValue(null),
+  findByPhone: vi.fn().mockResolvedValue(null),
   findById: vi.fn().mockResolvedValue(null),
   updatePasswordHash: vi.fn(),
+  updatePhone: vi.fn(),
+  updateStatus: vi.fn(),
 });

@@ -9,11 +9,11 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {
-  @ApiProperty({ example: 'member@example.com' })
+  @ApiProperty({ example: 'didier@gmail.com' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'CorrectPassword123!' })
+  @ApiProperty({ example: 'didier123' })
   @IsString()
   @IsNotEmpty()
   password!: string;
