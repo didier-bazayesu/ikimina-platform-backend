@@ -8,6 +8,7 @@ import { ApprovalsPage } from './pages/admin/ApprovalsPage'
 import { MembersPage } from './pages/admin/MembersPage'
 import { PenaltiesPage } from './pages/admin/PenaltiesPage'
 import { TransactionsPage } from './pages/admin/TransactionsPage'
+import { WithdrawalsPage } from './pages/admin/WithdrawalsPage'
 import { MemberLayout } from './components/layout/MemberLayout'
 import { MemberDashboardPage } from './pages/member/MemberDashboard'
 import { ContributePage } from './pages/member/ContributePage'
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="members" element={<MembersPage />} />
           <Route path="transactions" element={<TransactionsPage />} />
           <Route path="penalties" element={<PenaltiesPage />} />
+          <Route path="withdrawals" element={<WithdrawalsPage />} />
         </Route>
       </Route>
       <Route element={<RequireRole role="MEMBER" />}>
