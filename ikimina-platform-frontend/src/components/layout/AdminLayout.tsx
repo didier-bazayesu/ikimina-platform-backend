@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../../auth/AuthContext'
 import { Avatar } from '../ui/Avatar'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '../../api/client'
 
 const NAV_ITEMS = [
   { path: '/admin', label: 'Overview', icon: LayoutDashboard, exact: true },
@@ -32,6 +34,17 @@ export function AdminLayout() {
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+
+  const { data: dashboard } = useQuery({
+    queryKey: ['adminDashboard'],
+    queryFn: async () => {
+      const res = await api.get('/dashboards/admin')
+      return res.data || (res as any)
+    },
+    refetchInterval: 30000,
+  })
+
+  const pendingApprovalsCount = (dashboard?.pendingContributionPayments || 0) + (dashboard?.pendingPenaltyPayments || 0)
 
   if (!user || user.role !== 'ADMIN') {
     return <Navigate to="/login" replace />
@@ -89,7 +102,16 @@ export function AdminLayout() {
                     isActive ? 'text-brand-green' : 'text-text-muted'
                   }`}
                 />
-                {item.label}
+                <div className="flex-1 flex items-center justify-between min-w-0">
+                  <span className="truncate">{item.label}</span>
+                  {item.label === 'Approvals' && pendingApprovalsCount > 0 && (
+                    <span className={`shrink-0 ml-2 py-0.5 px-2 rounded-full text-[10px] font-bold ${
+                      isActive ? 'bg-terracotta text-white' : 'bg-terracotta text-white'
+                    }`}>
+                      {pendingApprovalsCount}
+                    </span>
+                  )}
+                </div>
               </NavLink>
             )
           })}
