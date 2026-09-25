@@ -166,6 +166,9 @@ export function ApprovalsPage() {
 
   const [approvingCard, setApprovingCard] = useState<Card | null>(null)
   const [approvedCard, setApprovedCard] = useState<Card | null>(null)
+  const [flaggingCard, setFlaggingCard] = useState<Card | null>(null)
+  const [flagReason, setFlagReason] = useState('Amount mismatch — penalty missing')
+  const [flagMessage, setFlagMessage] = useState('')
   const approveMutation = useMutation({
     mutationFn: async (card: Card) => {
       setActing({ key: card.key, action: 'approve' })
@@ -454,7 +457,14 @@ export function ApprovalsPage() {
                           <><span className="text-base leading-none">&times;</span> Reject</>
                         )}
                       </button>
-                      <button className="cursor-pointer px-4 py-2 rounded-lg border border-border-warm text-text-main font-bold text-sm hover:bg-black/5 transition-colors">
+                      <button
+                        onClick={() => {
+                          setFlagReason('Amount mismatch — penalty missing')
+                          setFlagMessage('')
+                          setFlaggingCard(card)
+                        }}
+                        className="cursor-pointer px-4 py-2 rounded-lg border border-border-warm text-text-main font-bold text-sm hover:bg-black/5 transition-colors"
+                      >
                         Flag &amp; message
                       </button>
                       <button
@@ -620,6 +630,89 @@ export function ApprovalsPage() {
                   Done
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Flag & Message Modal */}
+      {flaggingCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-xl max-w-md w-full overflow-hidden border border-border-warm">
+            <div className="p-8">
+              
+              <div className="flex items-start gap-4 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-[#FFF8E6] border border-[#F4E1B3] flex items-center justify-center shrink-0">
+                  <span className="text-[#94710A] text-xl font-bold font-heading">⚑</span>
+                </div>
+                <div>
+                  <h3 className="text-xl font-heading font-bold text-text-main mb-1">
+                    Flag &amp; message member
+                  </h3>
+                  <p className="text-sm text-text-muted">
+                    {flaggingCard.memberName || 'Unknown'} · {flaggingCard.contribution ? 'contribution' : 'penalty'} {formatNumber(flaggingCard.totalAmount)} RWF
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-5 mb-8">
+                <div>
+                  <label className="block text-sm font-bold text-text-main mb-2">Reason for flag</label>
+                  <div className="relative">
+                    <select
+                      value={flagReason}
+                      onChange={(e) => setFlagReason(e.target.value)}
+                      className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium appearance-none cursor-pointer"
+                    >
+                      <option value="Amount mismatch — penalty missing">Amount mismatch — penalty missing</option>
+                      <option value="Proof document unreadable">Proof document unreadable</option>
+                      <option value="Wrong month selected">Wrong month selected</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                      <svg className="w-4 h-4 text-text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-text-main mb-2">Message to member</label>
+                  <textarea
+                    value={flagMessage}
+                    onChange={(e) => setFlagMessage(e.target.value)}
+                    placeholder="Hi there — your payment seems to have an issue..."
+                    className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium min-h-[100px] resize-y text-sm"
+                  />
+                </div>
+
+                <div className="bg-bg-warm/50 rounded-xl p-4 flex gap-3 border border-border-warm">
+                  <span className="text-text-muted shrink-0 mt-0.5">ⓘ</span>
+                  <p className="text-xs text-text-muted leading-relaxed">
+                    The transaction stays <strong className="font-bold">Pending</strong> and the member is notified. This neither approves nor rejects it.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex w-full gap-3 justify-end">
+                <button
+                  onClick={() => setFlaggingCard(null)}
+                  className="cursor-pointer px-6 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    toast.success('Member flagged and notified (Mock - Endpoint missing)')
+                    setFlaggingCard(null)
+                  }}
+                  className="cursor-pointer px-6 py-2.5 rounded-xl bg-[#245D40] text-white font-bold hover:bg-[#245D40]/90 transition-colors text-sm"
+                >
+                  Flag &amp; send message
+                </button>
+              </div>
+
             </div>
           </div>
         </div>
