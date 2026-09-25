@@ -128,26 +128,26 @@ export function PenaltiesPage() {
           <div className="flex p-1 bg-cream/50 border border-border-warm rounded-lg">
             <button
               onClick={() => setFilter('UNPAID')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'UNPAID' ? 'bg-text-main shadow-sm text-white' : 'text-text-muted hover:text-text-main'}`}
+              className={`cursor-pointer px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'UNPAID' ? 'bg-text-main shadow-sm text-white' : 'text-text-muted hover:text-text-main'}`}
             >
               Unpaid
             </button>
             <button
               onClick={() => setFilter('PAID')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'PAID' ? 'bg-surface shadow-sm text-text-main' : 'text-text-muted hover:text-text-main'}`}
+              className={`cursor-pointer px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'PAID' ? 'bg-surface shadow-sm text-text-main' : 'text-text-muted hover:text-text-main'}`}
             >
               Paid
             </button>
             <button
               onClick={() => setFilter('ALL')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'ALL' ? 'bg-surface shadow-sm text-text-main' : 'text-text-muted hover:text-text-main'}`}
+              className={`cursor-pointer px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${filter === 'ALL' ? 'bg-surface shadow-sm text-text-main' : 'text-text-muted hover:text-text-main'}`}
             >
               All
             </button>
           </div>
           <button 
             onClick={exportToCsv}
-            className="flex items-center gap-2 px-4 py-2 border border-border-warm text-text-main font-medium rounded-lg hover:bg-bg-warm transition-colors text-sm"
+            className="cursor-pointer flex items-center gap-2 px-4 py-2 border border-border-warm text-text-main font-medium rounded-lg hover:bg-bg-warm transition-colors text-sm"
           >
             <Download className="w-4 h-4 text-text-muted" /> Export CSV
           </button>
