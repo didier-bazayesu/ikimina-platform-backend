@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { api } from '../../api/client'
@@ -118,6 +119,7 @@ function buildCards(contribs: ContribPayment[], penalties: PenPayment[]): Card[]
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ApprovalsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<'PENDING' | 'ALL'>('PENDING')
 
@@ -163,6 +165,7 @@ export function ApprovalsPage() {
   })
 
   const [approvingCard, setApprovingCard] = useState<Card | null>(null)
+  const [approvedCard, setApprovedCard] = useState<Card | null>(null)
   const approveMutation = useMutation({
     mutationFn: async (card: Card) => {
       setActing({ key: card.key, action: 'approve' })
@@ -174,7 +177,7 @@ export function ApprovalsPage() {
       await Promise.all(calls)
     },
     onSuccess: (_data, card) => {
-      toast.success(`${card.memberName}'s payment approved!`)
+      setApprovedCard(card)
       queryClient.invalidateQueries({ queryKey: ['adminApprovals'] })
       queryClient.invalidateQueries({ queryKey: ['adminDashboard'] })
     },
@@ -502,7 +505,7 @@ export function ApprovalsPage() {
                 </div>
                 <div>
                   <h3 className="text-xl font-heading font-bold text-text-main">
-                    Approve this {approvingCard.type === 'CONTRIBUTION' ? 'contribution' : 'penalty'}?
+                    Approve this {approvingCard.contribution ? 'contribution' : 'penalty'}?
                   </h3>
                   <p className="text-sm text-text-muted">
                     {approvingCard.memberName || 'Unknown'} · {formatNumber(approvingCard.totalAmount)} RWF
@@ -510,7 +513,7 @@ export function ApprovalsPage() {
                 </div>
               </div>
 
-              {approvingCard.type === 'CONTRIBUTION' && approvingCard.contribution && (
+              {approvingCard.contribution && (
                 <div className="bg-[#FFFDF9] rounded-xl p-5 border border-[#F2EFE8] mb-6 shadow-sm">
                   <p className="text-[10px] font-bold tracking-wider uppercase text-text-muted mb-3">
                     Will be allocated to
@@ -518,7 +521,7 @@ export function ApprovalsPage() {
                   <div className="space-y-2 mb-4">
                     {approvingCard.contribution.allocations.map(alloc => (
                       <div key={alloc.id} className="flex justify-between items-center text-sm font-medium text-text-main">
-                        <span>{alloc.month && alloc.year ? `${MONTH_NAMES[alloc.month - 1]} ${alloc.year}` : 'Unknown Period'}</span>
+                        <span>{alloc.month && alloc.year ? `${MONTHS[alloc.month - 1]} ${alloc.year}` : 'Unknown Period'}</span>
                         <span className="text-terracotta">{formatNumber(alloc.amount)}</span>
                       </div>
                     ))}
@@ -556,6 +559,65 @@ export function ApprovalsPage() {
                       <span>✓</span> Approve transaction
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {approvedCard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl border border-border-warm w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="p-8 flex flex-col items-center text-center">
+              <div className="w-16 h-16 rounded-full bg-green-tint text-brand-green flex items-center justify-center mb-6 border-4 border-white shadow-[0_0_0_4px_#EAF5F0]">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              <h3 className="text-xl font-heading font-bold text-text-main mb-2">
+                Transaction approved
+              </h3>
+              
+              <p className="text-sm text-text-muted mb-6">
+                {approvedCard.memberName}'s {approvedCard.contribution ? 'contribution' : 'penalty payment'} of<br/>
+                <span className="font-bold text-text-main">{formatNumber(approvedCard.totalAmount)} RWF</span> has been recorded.
+              </p>
+
+              <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
+                {approvedCard.contribution && (
+                  <span className="px-3 py-1 rounded-full bg-green-tint text-brand-green text-[11px] font-bold">
+                    +{approvedCard.contribution.allocations.length} shares
+                  </span>
+                )}
+                {/* Fallback for penalties cleared; hard to derive reliably from this endpoint alone without more backend fields, but we show the badge pattern */}
+                <span className="px-3 py-1 rounded-full bg-green-tint text-brand-green text-[11px] font-bold">
+                  {approvedCard.penalty ? '1 penalty cleared' : '0 penalties cleared'}
+                </span>
+                <span className="px-3 py-1 rounded-full bg-bg-warm text-text-muted text-[11px] font-bold">
+                  Fund +{formatNumber(approvedCard.totalAmount)}
+                </span>
+              </div>
+
+              <div className="flex w-full gap-3">
+                <button
+                  onClick={() => {
+                    const mId = approvedCard.contribution?.memberId || approvedCard.penalty?.memberId
+                    setApprovedCard(null)
+                    if (mId) navigate(`/admin/members?memberId=${mId}`)
+                    else navigate('/admin/members')
+                  }}
+                  className="cursor-pointer flex-1 px-4 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+                >
+                  View member
+                </button>
+                <button
+                  onClick={() => setApprovedCard(null)}
+                  className="cursor-pointer flex-1 px-4 py-2.5 rounded-xl bg-brand-green text-white font-bold hover:bg-brand-green/90 transition-colors text-sm"
+                >
+                  Done
                 </button>
               </div>
             </div>

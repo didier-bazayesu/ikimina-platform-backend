@@ -106,10 +106,22 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
   )
 }
 
+import { useSearchParams } from 'react-router-dom'
+
 export function MembersPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
+  
+  const selectedMemberId = searchParams.get('memberId')
+
+  const setSelectedMemberId = (id: string | null) => {
+    if (id) {
+      setSearchParams({ memberId: id })
+    } else {
+      setSearchParams({})
+    }
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300)
