@@ -49,6 +49,8 @@ const mockPasswordHasher = {
 function makeService(
   memberRepo: MemberRepositoryInterface,
   userRepo: UserRepositoryInterface,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  auditLogSvc?: any,
 ) {
   const svc = new MemberService(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,10 +59,15 @@ function makeService(
     userRepo as any,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     mockPasswordHasher as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {} as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {} as any,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     {} as any,
-    {} as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    {} as any,
+    auditLogSvc ?? {}
   );
   return svc;
 }
@@ -70,12 +77,15 @@ function makeService(
 describe('MemberService.createMember', () => {
   let memberRepo: ReturnType<typeof createMemberRepositoryMock>;
   let userRepo: ReturnType<typeof createUserRepositoryMock>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let auditLogSvc: any;
   let svc: MemberService;
 
   beforeEach(() => {
     memberRepo = createMemberRepositoryMock();
     userRepo = createUserRepositoryMock();
-    svc = makeService(memberRepo, userRepo);
+    auditLogSvc = { recordLog: vi.fn().mockResolvedValue(null) };
+    svc = makeService(memberRepo, userRepo, auditLogSvc);
     vi.mocked(userRepo.create).mockResolvedValue(baseUser);
     vi.mocked(memberRepo.create).mockResolvedValue(baseMember);
   });
@@ -97,7 +107,7 @@ describe('MemberService.createMember', () => {
     expect(result).toEqual(baseMember);
   });
 
-  it('throws ConflictException when email is already taken', async () => {
+  it('throws ConflictException when email is already taken by an active or suspended account', async () => {
     vi.mocked(userRepo.findByEmail).mockResolvedValue(baseUser);
     await expect(
       svc.createMember({
@@ -110,7 +120,7 @@ describe('MemberService.createMember', () => {
     expect(userRepo.create).not.toHaveBeenCalled();
   });
 
-  it('throws ConflictException when phone is already taken', async () => {
+  it('throws ConflictException when phone is already taken by an active or suspended account', async () => {
     vi.mocked(userRepo.findByPhone).mockResolvedValue(baseUser);
     await expect(
       svc.createMember({
@@ -121,6 +131,27 @@ describe('MemberService.createMember', () => {
       }),
     ).rejects.toThrow(ConflictException);
     expect(userRepo.create).not.toHaveBeenCalled();
+  });
+
+  it('allows creation and logs MEMBER_REJOINED if existing account is EXITED', async () => {
+    vi.mocked(userRepo.findByEmail).mockResolvedValue({ ...baseUser, status: 'EXITED', id: 'old-user-id' });
+    vi.mocked(userRepo.create).mockResolvedValue({ ...baseUser, id: 'new-user-id', status: 'ACTIVE' });
+    vi.mocked(memberRepo.create).mockResolvedValue({ ...baseMember, id: 'new-member-id', userId: 'new-user-id' });
+    
+    await svc.createMember({
+      email: 'alice@example.com',
+      phone: '+250788000001',
+      password: 'x',
+      fullName: 'X',
+      adminUserId: 'admin-1',
+    });
+    
+    expect(userRepo.create).toHaveBeenCalled();
+    expect(auditLogSvc.recordLog).toHaveBeenCalledWith(expect.objectContaining({
+      actionType: 'MEMBER_REJOINED',
+      oldState: { oldUserId: 'old-user-id', oldStatus: 'EXITED' },
+      newState: { newUserId: 'new-user-id', newStatus: 'ACTIVE' }
+    }));
   });
 });
 
@@ -190,57 +221,80 @@ describe('MemberService.updateMember', () => {
 // ── IKM-2.6: updateMemberStatus ───────────────────────────────────────────────
 
 describe('MemberService.updateMemberStatus', () => {
-  it('suspends the member (updates users.status)', async () => {
-    const memberRepo = createMemberRepositoryMock();
-    const userRepo = createUserRepositoryMock();
+  let memberRepo: ReturnType<typeof createMemberRepositoryMock>;
+  let userRepo: ReturnType<typeof createUserRepositoryMock>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let auditLogSvc: any;
+  let svc: MemberService;
+
+  beforeEach(() => {
+    memberRepo = createMemberRepositoryMock();
+    userRepo = createUserRepositoryMock();
+    auditLogSvc = { recordLog: vi.fn().mockResolvedValue(null) };
+    svc = makeService(memberRepo, userRepo, auditLogSvc);
+  });
+
+  it('suspends the member and logs MEMBER_STATUS_CHANGED', async () => {
     vi.mocked(memberRepo.findById).mockResolvedValue(baseMember);
-    const svc = makeService(memberRepo, userRepo);
     const result = await svc.updateMemberStatus('member-1', {
       status: 'SUSPENDED',
       reason: 'Missed payments',
+      adminUserId: 'admin-1',
     });
     expect(userRepo.updateStatus).toHaveBeenCalledWith('user-1', 'SUSPENDED');
+    expect(auditLogSvc.recordLog).toHaveBeenCalledWith(expect.objectContaining({
+      actionType: 'MEMBER_STATUS_CHANGED',
+      oldState: { status: 'ACTIVE' },
+      newState: { status: 'SUSPENDED', reason: 'Missed payments' }
+    }));
     expect(result).toEqual({ id: 'member-1', status: 'SUSPENDED' });
   });
 
-  it('throws BadRequestException when reason is missing on suspend', async () => {
-    const memberRepo = createMemberRepositoryMock();
-    const userRepo = createUserRepositoryMock();
+  it('exits the member and logs MEMBER_STATUS_CHANGED', async () => {
     vi.mocked(memberRepo.findById).mockResolvedValue(baseMember);
-    const svc = makeService(memberRepo, userRepo);
+    const result = await svc.updateMemberStatus('member-1', {
+      status: 'EXITED',
+      reason: 'Left org',
+      adminUserId: 'admin-1',
+    });
+    expect(userRepo.updateStatus).toHaveBeenCalledWith('user-1', 'EXITED');
+    expect(auditLogSvc.recordLog).toHaveBeenCalled();
+    expect(result).toEqual({ id: 'member-1', status: 'EXITED' });
+  });
+
+  it('rejects EXITED to ACTIVE transition', async () => {
+    vi.mocked(memberRepo.findById).mockResolvedValue({ ...baseMember, status: 'EXITED' });
+    await expect(
+      svc.updateMemberStatus('member-1', { status: 'ACTIVE' })
+    ).rejects.toThrow(BadRequestException);
+    expect(userRepo.updateStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects EXITED to SUSPENDED transition', async () => {
+    vi.mocked(memberRepo.findById).mockResolvedValue({ ...baseMember, status: 'EXITED' });
+    await expect(
+      svc.updateMemberStatus('member-1', { status: 'SUSPENDED', reason: 'x' })
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('throws BadRequestException when reason is missing on suspend', async () => {
+    vi.mocked(memberRepo.findById).mockResolvedValue(baseMember);
     await expect(
       svc.updateMemberStatus('member-1', { status: 'SUSPENDED' }),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('throws BadRequestException when reason is missing on exit', async () => {
-    const memberRepo = createMemberRepositoryMock();
-    const userRepo = createUserRepositoryMock();
-    vi.mocked(memberRepo.findById).mockResolvedValue(baseMember);
-    const svc = makeService(memberRepo, userRepo);
-    await expect(
-      svc.updateMemberStatus('member-1', { status: 'EXITED' }),
-    ).rejects.toThrow(BadRequestException);
-  });
-
   it('does not require reason when reactivating to ACTIVE', async () => {
-    const memberRepo = createMemberRepositoryMock();
-    const userRepo = createUserRepositoryMock();
     vi.mocked(memberRepo.findById).mockResolvedValue({
       ...baseMember,
       status: 'SUSPENDED',
     });
-    const svc = makeService(memberRepo, userRepo);
     await expect(
       svc.updateMemberStatus('member-1', { status: 'ACTIVE' }),
     ).resolves.toEqual({ id: 'member-1', status: 'ACTIVE' });
   });
 
   it('throws NotFoundException when member not found', async () => {
-    const svc = makeService(
-      createMemberRepositoryMock(),
-      createUserRepositoryMock(),
-    );
     await expect(
       svc.updateMemberStatus('bad-id', { status: 'SUSPENDED', reason: 'x' }),
     ).rejects.toThrow(NotFoundException);
