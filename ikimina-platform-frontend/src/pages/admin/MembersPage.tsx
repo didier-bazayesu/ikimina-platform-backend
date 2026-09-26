@@ -32,9 +32,11 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [isConfirmingStatus, setIsConfirmingStatus] = useState(false)
+  const [isConfirmingExit, setIsConfirmingExit] = useState(false)
   const initials = member.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase()
   
   const isActive = member.status === 'ACTIVE'
+  const isExited = member.status === 'EXITED'
 
   const statusMutation = useMutation({
     mutationFn: async () => {
@@ -46,12 +48,30 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
-      toast.success(isActive ? `${member.fullName} has been deactivated` : `${member.fullName} has been reactivated`)
+      toast.success(isActive ? `${member.fullName} has been suspended` : `${member.fullName} has been reactivated`)
       setIsConfirmingStatus(false)
       onBack()
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update status')
+    },
+  })
+
+  const exitMutation = useMutation({
+    mutationFn: async () => {
+      await api.patch(`/members/${member.id}/status`, {
+        status: 'EXITED',
+        reason: 'Member left the group',
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
+      toast.success(`${member.fullName} has exited the group`)
+      setIsConfirmingExit(false)
+      onBack()
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to exit member')
     },
   })
 
@@ -80,7 +100,7 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
               )}
             </div>
             <h3 className="text-xl font-heading font-bold text-text-main mb-3">
-              {isActive ? `Deactivate ${member.fullName}?` : `Reactivate ${member.fullName}?`}
+              {isActive ? `Suspend ${member.fullName}?` : `Reactivate ${member.fullName}?`}
             </h3>
             <p className="text-sm text-text-muted leading-relaxed mb-8">
               {isActive ? (
@@ -108,7 +128,47 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
                 {statusMutation.isPending ? (
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  isActive ? 'Deactivate' : 'Reactivate'
+                  isActive ? 'Suspend' : 'Reactivate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exit Confirmation Modal */}
+      {isConfirmingExit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-xl max-w-sm w-full border border-border-warm p-8 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5 bg-red-100">
+              <svg className="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-heading font-bold text-text-main mb-3">
+              Exit {member.fullName}?
+            </h3>
+            <p className="text-sm text-text-muted leading-relaxed mb-8">
+              This marks the member as permanently leaving the group.<br/><br/>
+              Their login access will be disabled, but all historical financial records will remain intact for auditing purposes.<br/><br/>
+              <strong className="text-red-600">This action cannot be undone by reactivating.</strong>
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsConfirmingExit(false)}
+                className="cursor-pointer flex-1 px-4 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => exitMutation.mutate()}
+                disabled={exitMutation.isPending}
+                className="cursor-pointer flex-1 px-4 py-2.5 rounded-xl text-white font-bold bg-red-600 hover:bg-red-700 transition-colors text-sm flex items-center justify-center disabled:opacity-50"
+              >
+                {exitMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Exit Member'
                 )}
               </button>
             </div>
@@ -125,14 +185,29 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
           <ChevronLeft className="w-4 h-4" /> Back to members
         </button>
         <div className="flex items-center gap-3">
-          <Button onClick={() => setIsEditing(true)} variant="outline" className="cursor-pointer text-xs py-1.5 px-4 h-auto">Edit</Button>
-          <Button
-            onClick={() => setIsConfirmingStatus(true)}
-            variant="outline"
-            className={`cursor-pointer text-xs py-1.5 px-4 h-auto ${isActive ? 'text-terracotta border-terracotta hover:bg-terracotta/5' : 'text-brand-green border-brand-green hover:bg-brand-green/5'}`}
-          >
-            {isActive ? 'Deactivate' : 'Reactivate'}
-          </Button>
+          {isExited ? (
+            <span className="text-sm font-bold text-text-muted bg-bg-warm px-4 py-1.5 rounded-xl border border-border-warm">
+              EXITED: Historical Record
+            </span>
+          ) : (
+            <>
+              <Button onClick={() => setIsEditing(true)} variant="outline" className="cursor-pointer text-xs py-1.5 px-4 h-auto">Edit</Button>
+              <Button
+                onClick={() => setIsConfirmingStatus(true)}
+                variant="outline"
+                className={`cursor-pointer text-xs py-1.5 px-4 h-auto ${isActive ? 'text-terracotta border-terracotta hover:bg-terracotta/5' : 'text-brand-green border-brand-green hover:bg-brand-green/5'}`}
+              >
+                {isActive ? 'Suspend' : 'Reactivate'}
+              </Button>
+              <Button
+                onClick={() => setIsConfirmingExit(true)}
+                variant="outline"
+                className="cursor-pointer text-xs py-1.5 px-4 h-auto text-red-600 border-red-600 hover:bg-red-50"
+              >
+                Exit Member
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -144,9 +219,13 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
             <div className="flex items-center gap-3 mb-1">
               <h2 className="text-2xl font-bold font-heading text-text-main">{member.fullName}</h2>
               <span className={`px-2 py-0.5 rounded-sm text-[11px] font-bold uppercase tracking-wider ${
-                member.status === 'ACTIVE' ? 'bg-brand-green/10 text-brand-green' : 'bg-border-warm text-text-muted'
+                member.status === 'ACTIVE' 
+                  ? 'bg-brand-green/10 text-brand-green' 
+                  : member.status === 'SUSPENDED'
+                    ? 'bg-terracotta/10 text-terracotta'
+                    : 'bg-border-warm text-text-muted'
               }`}>
-                {member.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                {member.status}
               </span>
             </div>
             <p className="text-text-muted text-[13px] leading-relaxed">
@@ -665,11 +744,13 @@ export function MembersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
-                        member.status === 'ACTIVE'
-                          ? 'bg-brand-green/10 text-brand-green'
-                          : 'bg-border-warm text-text-muted'
+                        member.status === 'ACTIVE' 
+                          ? 'bg-brand-green/10 text-brand-green' 
+                          : member.status === 'SUSPENDED'
+                            ? 'bg-terracotta/10 text-terracotta'
+                            : 'bg-border-warm text-text-muted'
                       }`}>
-                        {member.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        {member.status}
                       </span>
                     </td>
                   </tr>
