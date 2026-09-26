@@ -76,4 +76,27 @@ export class NotificationListener {
       );
     }
   }
+
+  @OnEvent('payment.flagged')
+  async handlePaymentFlagged(payload: { memberId: string; reason: string; message?: string }) {
+    try {
+      const member = await this.memberRepository.findById(payload.memberId);
+      if (!member) {
+        this.logger.warn(`Member ${payload.memberId} not found, skipping notification.`);
+        return;
+      }
+
+      await this.notificationService.createNotification(
+        member.userId,
+        NotificationType.PAYMENT_FLAGGED,
+        'Action Required: Payment Flagged',
+        payload.message || payload.reason,
+      );
+
+      // eslint-disable-next-line no-console
+      console.log('Mock Email sent to:', member.email, 'with reason:', payload.reason);
+    } catch (error) {
+      this.logger.error('Error handling payment.flagged event', (error as Error).stack);
+    }
+  }
 }
