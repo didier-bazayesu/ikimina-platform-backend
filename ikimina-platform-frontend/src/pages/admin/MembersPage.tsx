@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { api } from '../../api/client'
 import { formatNumber, formatDate } from '../../lib/format'
 import { Avatar } from '../../components/ui/Avatar'
@@ -17,6 +18,7 @@ interface MemberWithStats {
   fullName: string
   email: string
   phone?: string
+  address?: string | null
   joinedDate?: string
   status: 'ACTIVE' | 'EXITED' | 'SUSPENDED'
   shares: number
@@ -27,6 +29,7 @@ interface MemberWithStats {
 }
 
 function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack: () => void }) {
+  const [isEditing, setIsEditing] = useState(false)
   const initials = member.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase()
   
   let monthsInGroup = 0
@@ -36,16 +39,17 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
+      {isEditing && <EditMemberModal member={member} onClose={() => setIsEditing(false)} />}
       {/* Top Actions */}
       <div className="flex items-center justify-between mb-6">
         <button 
           onClick={onBack}
-          className="flex items-center gap-2 text-sm font-bold text-text-main hover:text-brand-green transition-colors"
+          className="cursor-pointer flex items-center gap-2 text-sm font-bold text-text-main hover:text-brand-green transition-colors"
         >
           <ChevronLeft className="w-4 h-4" /> Back to members
         </button>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="text-xs py-1.5 px-4 h-auto">Edit</Button>
+          <Button onClick={() => setIsEditing(true)} variant="outline" className="cursor-pointer text-xs py-1.5 px-4 h-auto">Edit</Button>
           <Button variant="outline" className="text-xs py-1.5 px-4 h-auto text-terracotta border-terracotta hover:bg-terracotta/5">
             {member.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'}
           </Button>
@@ -107,11 +111,330 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
 }
 
 import { useSearchParams } from 'react-router-dom'
+import { UserPlus, CheckCircle2 } from 'lucide-react'
+
+function EditMemberModal({ member, onClose }: { member: MemberWithStats, onClose: () => void }) {
+  const queryClient = useQueryClient()
+  
+  const [fullName, setFullName] = useState(member.fullName)
+  const [phone, setPhone] = useState(member.phone || '')
+  const [address, setAddress] = useState(member.address || '')
+  const [status, setStatus] = useState(member.status)
+
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      // API call to update profile
+      const payload = { fullName, phone, address: address || undefined }
+      await api.patch(`/members/${member.id}`, payload)
+      
+      // API call to update status if changed
+      if (status !== member.status) {
+        await api.patch(`/members/${member.id}/status`, { status, reason: 'Admin updated from dashboard' })
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
+      queryClient.invalidateQueries({ queryKey: ['adminDashboard'] })
+      toast.success('Member updated')
+      onClose()
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update member')
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullName || !phone) {
+      return toast.error('Full name and phone are required.')
+    }
+    updateMutation.mutate()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-xl max-w-md w-full overflow-hidden border border-border-warm p-8">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-brand-green/10 flex items-center justify-center shrink-0">
+            <span className="font-bold text-brand-green">{member.fullName.substring(0, 2).toUpperCase()}</span>
+          </div>
+          <div>
+            <h3 className="text-xl font-heading font-bold text-text-main mb-1">Edit member</h3>
+            <p className="text-sm text-text-muted">Member {member.memberNumber} &middot; joined {member.joinedDate ? format(new Date(member.joinedDate), 'MMMM yyyy') : 'Unknown'}</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Full name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Phone</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Address <span className="font-normal text-text-muted">(optional)</span></label>
+            <input
+              type="text"
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+              placeholder="KG 123 St, Kigali"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Account status</label>
+            <div className="flex bg-bg-warm p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setStatus('ACTIVE')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${status === 'ACTIVE' ? 'bg-white shadow-sm text-brand-green' : 'text-text-muted hover:text-text-main'}`}
+              >
+                Active
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatus('EXITED')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${status === 'EXITED' ? 'bg-white shadow-sm text-terracotta' : 'text-text-muted hover:text-text-main'}`}
+              >
+                Inactive
+              </button>
+            </div>
+          </div>
+
+          <div className="flex w-full gap-3 justify-end pt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="cursor-pointer px-6 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updateMutation.isPending}
+              className="cursor-pointer px-6 py-2.5 rounded-xl bg-[#245D40] text-white font-bold hover:bg-[#245D40]/90 transition-colors text-sm flex items-center justify-center min-w-[140px] disabled:opacity-50"
+            >
+              {updateMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Save changes'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function AddMemberModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [successData, setSuccessData] = useState<any>(null)
+  
+  const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [joinedDate, setJoinedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const payload = { fullName, phone, email, password, joinedDate }
+      const res = await api.post('/members', payload)
+      return (res.data as any)?.data ?? res.data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
+      queryClient.invalidateQueries({ queryKey: ['adminDashboard'] })
+      setSuccessData(data)
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to create member')
+    },
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fullName || !phone || !email || !password) {
+      return toast.error('All fields including email and password are required.')
+    }
+    createMutation.mutate()
+  }
+
+  const handleAddAnother = () => {
+    setSuccessData(null)
+    setFullName('')
+    setPhone('')
+    setEmail('')
+    setPassword('')
+  }
+
+  if (successData) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+        <div className="bg-white rounded-3xl shadow-xl max-w-md w-full overflow-hidden border border-border-warm p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-brand-green/10 flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-8 h-8 text-brand-green" />
+          </div>
+          <h2 className="text-2xl font-bold font-heading text-text-main mb-2">Member added</h2>
+          <p className="text-sm text-text-muted mb-6">
+            <strong className="text-text-main">{successData.fullName} ({successData.memberNumber})</strong> is now in the group.<br/>
+            An invite was sent to {successData.phone}.
+          </p>
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <span className="px-3 py-1 rounded-full bg-brand-green/10 text-brand-green text-[11px] font-bold">Invite sent</span>
+            <span className="px-3 py-1 rounded-full bg-bg-warm text-text-muted text-[11px] font-bold">Starts {format(new Date(successData.joinedDate), 'MMM yyyy')}</span>
+          </div>
+          <div className="flex w-full gap-3">
+            <button onClick={handleAddAnother} className="flex-1 px-4 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm">
+              Add another
+            </button>
+            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl bg-brand-green text-white font-bold hover:bg-brand-green/90 transition-colors text-sm">
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+      <div className="bg-white rounded-3xl shadow-xl max-w-md w-full overflow-hidden border border-border-warm p-8">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-12 h-12 rounded-2xl bg-brand-green/10 flex items-center justify-center shrink-0">
+            <UserPlus className="w-6 h-6 text-brand-green" />
+          </div>
+          <div>
+            <h3 className="text-xl font-heading font-bold text-text-main mb-1">Add a member</h3>
+            <p className="text-sm text-text-muted">They'll get an invite to set a password.</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Full name</label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
+              className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+              placeholder="Didier Uwase"
+              required
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-text-main mb-2">Phone</label>
+              <input
+                type="text"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+                placeholder="+250 788 305 219"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-text-main mb-2">Email (required)</label>
+              <input
+                type="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-brand-green underline focus:outline-none focus:border-brand-green font-medium"
+                placeholder="email@example.com"
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-text-main mb-2">Member number</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  disabled
+                  className="w-full bg-bg-warm border border-transparent rounded-xl px-4 py-3 text-text-muted font-medium"
+                  value="auto"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-text-main mb-2">Obligations start</label>
+              <input
+                type="date"
+                value={joinedDate}
+                onChange={e => setJoinedDate(e.target.value)}
+                className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-text-main mb-2">Password (Admin sets)</label>
+            <input
+              type="text"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full bg-white border border-border-warm rounded-xl px-4 py-3 text-text-main focus:outline-none focus:border-brand-green font-medium"
+              placeholder="Temp@Pass123"
+              required
+              minLength={8}
+            />
+          </div>
+
+          <div className="bg-bg-warm/50 rounded-xl p-4 flex gap-3 border border-border-warm my-6">
+            <span className="text-text-muted shrink-0 mt-0.5">ⓘ</span>
+            <p className="text-xs text-text-muted leading-relaxed">
+              Shares and penalties begin from the <strong className="font-bold">start month</strong> you choose — earlier months won't count against them.
+            </p>
+          </div>
+
+          <div className="flex w-full gap-3 justify-end pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="cursor-pointer px-6 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={createMutation.isPending}
+              className="cursor-pointer px-6 py-2.5 rounded-xl bg-[#245D40] text-white font-bold hover:bg-[#245D40]/90 transition-colors text-sm flex items-center justify-center min-w-[140px] disabled:opacity-50"
+            >
+              {createMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Create member'
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
 
 export function MembersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [isAddingMember, setIsAddingMember] = useState(false)
   
   const selectedMemberId = searchParams.get('memberId')
 
@@ -181,11 +504,16 @@ export function MembersPage() {
               className="pl-9 pr-4 py-2 rounded-lg border border-border-warm bg-white focus:outline-none focus:ring-2 focus:ring-brand-green/20 focus:border-brand-green transition-all w-64 text-sm"
             />
           </div>
-          <button className="px-4 py-2 bg-brand-green text-white text-sm font-bold rounded-lg hover:bg-brand-green/90 transition-colors flex items-center gap-2">
+          <button 
+            onClick={() => setIsAddingMember(true)}
+            className="cursor-pointer px-4 py-2 bg-brand-green text-white text-sm font-bold rounded-lg hover:bg-brand-green/90 transition-colors flex items-center gap-2"
+          >
             <span className="text-lg leading-none">+</span> Add member
           </button>
         </div>
       </div>
+
+      {isAddingMember && <AddMemberModal onClose={() => setIsAddingMember(false)} />}
 
       {/* Table */}
       <div className="bg-white rounded-xl border border-border-warm overflow-hidden shadow-sm">
