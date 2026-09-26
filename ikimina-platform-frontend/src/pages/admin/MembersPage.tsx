@@ -29,9 +29,32 @@ interface MemberWithStats {
 }
 
 function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack: () => void }) {
+  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
+  const [isConfirmingStatus, setIsConfirmingStatus] = useState(false)
   const initials = member.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase()
   
+  const isActive = member.status === 'ACTIVE'
+
+  const statusMutation = useMutation({
+    mutationFn: async () => {
+      const newStatus = isActive ? 'SUSPENDED' : 'ACTIVE'
+      await api.patch(`/members/${member.id}/status`, {
+        status: newStatus,
+        reason: isActive ? 'Suspended by admin' : 'Reactivated by admin',
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
+      toast.success(isActive ? `${member.fullName} has been deactivated` : `${member.fullName} has been reactivated`)
+      setIsConfirmingStatus(false)
+      onBack()
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to update status')
+    },
+  })
+
   let monthsInGroup = 0
   if (member.joinedDate) {
     monthsInGroup = differenceInMonths(new Date(), new Date(member.joinedDate))
@@ -39,7 +62,60 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
 
   return (
     <div className="max-w-5xl mx-auto pb-12">
-      {isEditing && <EditMemberModal member={member} onClose={() => setIsEditing(false)} />}
+      {isEditing && <EditMemberModal member={member} onClose={() => setIsEditing(false)} onDeactivate={() => setIsConfirmingStatus(true)} />}
+
+      {/* Deactivate / Reactivate Confirmation Modal */}
+      {isConfirmingStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-xl max-w-sm w-full border border-border-warm p-8 text-center">
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5 ${isActive ? 'bg-terracotta/10' : 'bg-brand-green/10'}`}>
+              {isActive ? (
+                <svg className="w-7 h-7 text-terracotta" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+              ) : (
+                <svg className="w-7 h-7 text-brand-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
+            </div>
+            <h3 className="text-xl font-heading font-bold text-text-main mb-3">
+              {isActive ? `Deactivate ${member.fullName}?` : `Reactivate ${member.fullName}?`}
+            </h3>
+            <p className="text-sm text-text-muted leading-relaxed mb-8">
+              {isActive ? (
+                <>They will no longer be able to log in or submit transactions.<br/>
+                Their shares, contributions and penalties are <strong className="text-terracotta">kept</strong> — you can reactivate them anytime.</>
+              ) : (
+                <>They will regain access to log in and submit transactions.<br/>
+                All their historical data remains <strong className="text-brand-green">intact</strong>.</>
+              )}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setIsConfirmingStatus(false)}
+                className="cursor-pointer flex-1 px-4 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => statusMutation.mutate()}
+                disabled={statusMutation.isPending}
+                className={`cursor-pointer flex-1 px-4 py-2.5 rounded-xl text-white font-bold transition-colors text-sm flex items-center justify-center disabled:opacity-50 ${
+                  isActive ? 'bg-terracotta hover:bg-terracotta/90' : 'bg-brand-green hover:bg-brand-green/90'
+                }`}
+              >
+                {statusMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  isActive ? 'Deactivate' : 'Reactivate'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Top Actions */}
       <div className="flex items-center justify-between mb-6">
         <button 
@@ -50,8 +126,12 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
         </button>
         <div className="flex items-center gap-3">
           <Button onClick={() => setIsEditing(true)} variant="outline" className="cursor-pointer text-xs py-1.5 px-4 h-auto">Edit</Button>
-          <Button variant="outline" className="text-xs py-1.5 px-4 h-auto text-terracotta border-terracotta hover:bg-terracotta/5">
-            {member.status === 'ACTIVE' ? 'Deactivate' : 'Reactivate'}
+          <Button
+            onClick={() => setIsConfirmingStatus(true)}
+            variant="outline"
+            className={`cursor-pointer text-xs py-1.5 px-4 h-auto ${isActive ? 'text-terracotta border-terracotta hover:bg-terracotta/5' : 'text-brand-green border-brand-green hover:bg-brand-green/5'}`}
+          >
+            {isActive ? 'Deactivate' : 'Reactivate'}
           </Button>
         </div>
       </div>
@@ -113,24 +193,18 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
 import { useSearchParams } from 'react-router-dom'
 import { UserPlus, CheckCircle2 } from 'lucide-react'
 
-function EditMemberModal({ member, onClose }: { member: MemberWithStats, onClose: () => void }) {
+function EditMemberModal({ member, onClose, onDeactivate }: { member: MemberWithStats, onClose: () => void, onDeactivate: () => void }) {
   const queryClient = useQueryClient()
   
   const [fullName, setFullName] = useState(member.fullName)
   const [phone, setPhone] = useState(member.phone || '')
   const [address, setAddress] = useState(member.address || '')
-  const [status, setStatus] = useState(member.status)
 
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // API call to update profile
       const payload = { fullName, phone, address: address || undefined }
       await api.patch(`/members/${member.id}`, payload)
-      
-      // API call to update status if changed
-      if (status !== member.status) {
-        await api.patch(`/members/${member.id}/status`, { status, reason: 'Admin updated from dashboard' })
-      }
+      // Status change is handled by the Deactivate button — not here
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
@@ -150,6 +224,8 @@ function EditMemberModal({ member, onClose }: { member: MemberWithStats, onClose
     }
     updateMutation.mutate()
   }
+
+  const isActive = member.status === 'ACTIVE'
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
@@ -195,45 +271,39 @@ function EditMemberModal({ member, onClose }: { member: MemberWithStats, onClose
               placeholder="KG 123 St, Kigali"
             />
           </div>
-          <div>
-            <label className="block text-sm font-bold text-text-main mb-2">Account status</label>
-            <div className="flex bg-bg-warm p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setStatus('ACTIVE')}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${status === 'ACTIVE' ? 'bg-white shadow-sm text-brand-green' : 'text-text-muted hover:text-text-main'}`}
-              >
-                Active
-              </button>
-              <button
-                type="button"
-                onClick={() => setStatus('EXITED')}
-                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${status === 'EXITED' ? 'bg-white shadow-sm text-terracotta' : 'text-text-muted hover:text-text-main'}`}
-              >
-                Inactive
-              </button>
-            </div>
-          </div>
 
-          <div className="flex w-full gap-3 justify-end pt-6">
+          <div className="flex w-full gap-3 pt-6">
             <button
               type="button"
-              onClick={onClose}
-              className="cursor-pointer px-6 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+              onClick={() => { onClose(); onDeactivate() }}
+              className={`cursor-pointer px-4 py-2.5 rounded-xl border font-bold text-sm transition-colors ${
+                isActive
+                  ? 'border-terracotta text-terracotta hover:bg-terracotta/5'
+                  : 'border-brand-green text-brand-green hover:bg-brand-green/5'
+              }`}
             >
-              Cancel
+              {isActive ? 'Deactivate' : 'Reactivate'}
             </button>
-            <button
-              type="submit"
-              disabled={updateMutation.isPending}
-              className="cursor-pointer px-6 py-2.5 rounded-xl bg-[#245D40] text-white font-bold hover:bg-[#245D40]/90 transition-colors text-sm flex items-center justify-center min-w-[140px] disabled:opacity-50"
-            >
-              {updateMutation.isPending ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                'Save changes'
-              )}
-            </button>
+            <div className="flex gap-3 ml-auto">
+              <button
+                type="button"
+                onClick={onClose}
+                className="cursor-pointer px-6 py-2.5 rounded-xl border border-border-warm text-text-main font-bold hover:bg-bg-warm transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="cursor-pointer px-6 py-2.5 rounded-xl bg-[#245D40] text-white font-bold hover:bg-[#245D40]/90 transition-colors text-sm flex items-center justify-center min-w-[120px] disabled:opacity-50"
+              >
+                {updateMutation.isPending ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  'Save changes'
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>
