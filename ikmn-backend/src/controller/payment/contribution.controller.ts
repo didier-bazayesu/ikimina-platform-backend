@@ -31,6 +31,7 @@ import { SubmitContributionPaymentDto } from './submit-contribution-payment.dto'
 import { ListContributionPaymentsDto } from './list-contribution-payments.dto';
 import { RejectContributionPaymentDto } from './reject-contribution-payment.dto';
 import { FlagPaymentDto } from './flag-payment.dto';
+import { RecordOnBehalfDto } from './record-on-behalf.dto';
 import type { ContributionServiceInterface } from '../../application/payment/contribution.service.interface';
 import { CONTRIBUTION_SERVICE } from '../../application/payment/contribution.service.interface';
 import type { MemberRepositoryInterface } from '../../application/member/member.repository.interface';
@@ -215,6 +216,37 @@ export class ContributionController {
       success: true,
       data: result,
       message: 'Message sent to member successfully',
+    };
+  }
+
+  @Post('record-on-behalf')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Admin records an auto-approved cash/off-app payment on behalf of a member' })
+  @ApiResponse({ status: 201, description: 'Payment recorded and auto-approved' })
+  @ApiResponse({ status: 400, description: 'Invalid amount or penalty mismatch' })
+  @ApiResponse({ status: 401, description: 'Unauthenticated' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  async recordOnBehalf(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: RecordOnBehalfDto,
+  ) {
+    const paymentDate = new Date(dto.paymentDate);
+    const result = await this.service.recordOnBehalf(
+      {
+        memberId: dto.memberId,
+        obligationIds: dto.obligationIds,
+        amount: dto.amount,
+        paymentDate,
+        withPenalty: dto.withPenalty,
+        notes: dto.notes,
+      },
+      user.id,
+    );
+
+    return {
+      success: true,
+      data: result,
+      message: 'Payment recorded and auto-approved successfully',
     };
   }
 }

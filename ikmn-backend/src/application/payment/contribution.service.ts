@@ -11,6 +11,7 @@ import type {
   SubmitContributionPaymentParams,
   ListContributionPaymentsParams,
   ListContributionPaymentsResponse,
+  RecordOnBehalfParams,
 } from './contribution.service.interface';
 import type { ContributionRepositoryInterface } from './contribution.repository.interface';
 import { CONTRIBUTION_REPOSITORY } from './contribution.repository.interface';
@@ -20,6 +21,9 @@ import type { StorageAdapterInterface } from '../common/storage.interface';
 import { STORAGE_ADAPTER } from '../common/storage.interface';
 import type { ContributionPayment } from './contribution-payment';
 import type { MonthlyObligation } from '../monthly-obligation/monthly-obligation';
+import type { PenaltyRepositoryInterface } from '../penalty/penalty.repository.interface';
+import { PENALTY_REPOSITORY } from '../penalty/penalty.repository.interface';
+import type { PenaltyPayment } from '../penalty/penalty-payment';
 
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
@@ -35,6 +39,8 @@ export class ContributionService implements ContributionServiceInterface {
     @Inject(STORAGE_ADAPTER)
     private readonly storageAdapter: StorageAdapterInterface,
     private readonly eventEmitter: EventEmitter2,
+    @Inject(PENALTY_REPOSITORY)
+    private readonly penaltyRepo: PenaltyRepositoryInterface,
   ) {}
 
   async submitPayment(
@@ -282,5 +288,112 @@ export class ContributionService implements ContributionServiceInterface {
 
     this.logger.log(`Payment ${id} flagged by admin ${adminUserId} with reason: ${reason}`);
     return payment;
+  }
+
+  async recordOnBehalf(
+    params: RecordOnBehalfParams,
+    adminUserId: string,
+  ): Promise<{ contributionPayment: ContributionPayment; penaltyPayments: PenaltyPayment[] }> {
+    if (!params.obligationIds || params.obligationIds.length === 0) {
+      throw new BadRequestException('At least one obligation ID must be provided');
+    }
+
+    const obligations: MonthlyObligation[] = [];
+    // Fetch and validate targeted obligations
+    const allObligations = await this.obligationRepo.list({ page: 1, limit: 10000 });
+    
+    for (const id of params.obligationIds) {
+      const ob = allObligations.items.find((item) => item.id === id);
+      if (!ob) {
+        throw new NotFoundException(`Monthly obligation ${id} not found`);
+      }
+      if (ob.memberId !== params.memberId) {
+        throw new NotFoundException(`Obligation ${id} does not belong to member ${params.memberId}`);
+      }
+      if (ob.status !== 'UNPAID') {
+        throw new ConflictException(`Obligation ${id} is already ${ob.status}`);
+      }
+      obligations.push(ob);
+    }
+
+    const totalContributionExpected = obligations.reduce((sum, ob) => sum + ob.expectedAmount, 0);
+    
+    let totalPenaltyExpected = 0;
+    // Fix: Explicitly type unpaidPenalties so we can push Penalty objects
+    const unpaidPenalties: { id: string; amount: number }[] = [];
+    
+    if (params.withPenalty) {
+      for (const ob of obligations) {
+        const penalty = await this.penaltyRepo.findPenaltyByObligationId(ob.id);
+        if (penalty && penalty.status === 'UNPAID') {
+          unpaidPenalties.push(penalty);
+          totalPenaltyExpected += penalty.amount;
+        }
+      }
+      if (unpaidPenalties.length === 0) {
+        throw new BadRequestException('No penalty to pay for these months');
+      }
+    }
+
+    const totalExpected = totalContributionExpected + totalPenaltyExpected;
+    if (Math.abs(params.amount - totalExpected) > 0.01) {
+      throw new BadRequestException(
+        `Submitted amount (${params.amount}) does not match expected total (${totalExpected})`
+      );
+    }
+
+    // Process Penalties
+    const penaltyPayments: PenaltyPayment[] = [];
+    if (params.withPenalty) {
+      for (const penalty of unpaidPenalties) {
+        const payment = await this.penaltyRepo.createPenaltyPayment({
+          penaltyId: penalty.id,
+          amount: penalty.amount,
+          paymentDate: params.paymentDate,
+          method: 'CASH',
+          notes: params.notes,
+          proofUrl: '',
+        });
+        const approved = await this.penaltyRepo.approvePenaltyPaymentAndMarkPaid(payment.id, adminUserId);
+        if (approved) penaltyPayments.push(approved);
+      }
+    }
+
+    // Process Contributions
+    const allocations = obligations.map((ob) => ({
+      monthlyObligationId: ob.id,
+      amount: ob.expectedAmount,
+    }));
+
+    const contributionPayment = await this.repository.createPaymentWithAllocations({
+      memberId: params.memberId,
+      amount: totalContributionExpected,
+      paymentDate: params.paymentDate,
+      method: 'CASH',
+      notes: params.notes,
+      proofUrl: '',
+      allocations,
+    });
+
+    const approvedContribution = await this.repository.approveAndMarkObligationsPaid(
+      contributionPayment.id,
+      adminUserId,
+    );
+
+    if (!approvedContribution) {
+      throw new ConflictException('Failed to auto-approve the recorded contribution payment');
+    }
+
+    this.eventEmitter.emit('payment.approved', {
+      memberId: approvedContribution.memberId,
+      amount: approvedContribution.amount,
+    });
+
+    this.logger.log(`Record on behalf completed for member ${params.memberId} by admin ${adminUserId}`);
+
+    return {
+      contributionPayment: approvedContribution,
+      penaltyPayments,
+    };
   }
 }

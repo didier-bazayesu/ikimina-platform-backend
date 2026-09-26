@@ -20,6 +20,15 @@ export interface SubmitContributionPaymentParams {
   file?: FileInput;
 }
 
+export interface RecordOnBehalfParams {
+  memberId: string;
+  obligationIds: string[];
+  amount: number;
+  paymentDate: Date;
+  withPenalty: boolean;
+  notes?: string;
+}
+
 export interface ListContributionPaymentsParams {
   status?: ContributionStatus;
   memberId?: string;
@@ -62,6 +71,11 @@ export interface ContributionServiceInterface {
     message: string,
     adminUserId: string,
   ): Promise<ContributionPayment>;
+
+  recordOnBehalf(
+    params: RecordOnBehalfParams,
+    adminUserId: string,
+  ): Promise<{ contributionPayment: ContributionPayment; penaltyPayments: unknown[] }>;
 }
 
 export const CONTRIBUTION_SERVICE = Symbol('CONTRIBUTION_SERVICE');
