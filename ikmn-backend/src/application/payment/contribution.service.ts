@@ -258,4 +258,29 @@ export class ContributionService implements ContributionServiceInterface {
 
     return rejectedPayment;
   }
+
+  async flagPayment(
+    id: string,
+    reason: string,
+    message: string,
+    adminUserId: string,
+  ): Promise<ContributionPayment> {
+    const payment = await this.repository.findById(id);
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+    if (payment.status !== 'PENDING') {
+      throw new BadRequestException('Only pending payments can be flagged');
+    }
+
+    // Emit event to trigger notification without changing payment status
+    this.eventEmitter.emit('payment.flagged', {
+      memberId: payment.memberId,
+      reason,
+      message,
+    });
+
+    this.logger.log(`Payment ${id} flagged by admin ${adminUserId} with reason: ${reason}`);
+    return payment;
+  }
 }

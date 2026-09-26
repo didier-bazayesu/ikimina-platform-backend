@@ -30,6 +30,7 @@ import type { AuthenticatedUser } from '../authentication.guard';
 import { SubmitContributionPaymentDto } from './submit-contribution-payment.dto';
 import { ListContributionPaymentsDto } from './list-contribution-payments.dto';
 import { RejectContributionPaymentDto } from './reject-contribution-payment.dto';
+import { FlagPaymentDto } from './flag-payment.dto';
 import type { ContributionServiceInterface } from '../../application/payment/contribution.service.interface';
 import { CONTRIBUTION_SERVICE } from '../../application/payment/contribution.service.interface';
 import type { MemberRepositoryInterface } from '../../application/member/member.repository.interface';
@@ -192,6 +193,28 @@ export class ContributionController {
       success: true,
       data: result,
       message: 'Payment rejected',
+    };
+  }
+
+  @Patch(':id/flag')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Admin flags a pending contribution payment to send a message' })
+  @ApiResponse({ status: 200, description: 'Payment flagged and message sent' })
+  @ApiResponse({ status: 400, description: 'Missing reason or message' })
+  @ApiResponse({ status: 401, description: 'Unauthenticated' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  @ApiResponse({ status: 409, description: 'Payment is not currently PENDING' })
+  async flagPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FlagPaymentDto,
+  ) {
+    const result = await this.service.flagPayment(id, dto.reason, dto.message, user.id);
+    return {
+      success: true,
+      data: result,
+      message: 'Message sent to member successfully',
     };
   }
 }

@@ -55,6 +55,13 @@ export interface ContributionServiceInterface {
     reason: string,
     adminUserId: string,
   ): Promise<ContributionPayment>;
+
+  flagPayment(
+    id: string,
+    reason: string,
+    message: string,
+    adminUserId: string,
+  ): Promise<ContributionPayment>;
 }
 
 export const CONTRIBUTION_SERVICE = Symbol('CONTRIBUTION_SERVICE');
