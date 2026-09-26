@@ -9,9 +9,15 @@ import { ContributionRepository } from '../persistence/contribution.repository';
 import { CONTRIBUTION_SERVICE } from '../application/payment/contribution.service.interface';
 import { ContributionService } from '../application/payment/contribution.service';
 import { ContributionController } from '../controller/payment/contribution.controller';
+import { PenaltyModule } from './penalty.module';
 
 @Module({
-  imports: [AuthenticationModule, forwardRef(() => MemberModule), MonthlyObligationModule],
+  imports: [
+    AuthenticationModule, 
+    forwardRef(() => MemberModule), 
+    MonthlyObligationModule,
+    forwardRef(() => PenaltyModule)
+  ],
   controllers: [ContributionController],
   providers: [
     { provide: STORAGE_ADAPTER, useClass: StorageAdapter },
