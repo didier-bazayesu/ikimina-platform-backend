@@ -31,6 +31,9 @@ import { PENALTY_REPOSITORY } from '../penalty/penalty.repository.interface';
 import type { ContributionRepositoryInterface } from '../payment/contribution.repository.interface';
 import { CONTRIBUTION_REPOSITORY } from '../payment/contribution.repository.interface';
 
+import type { AuditLogServiceInterface } from '../audit-log/audit-log.service.interface';
+import { AUDIT_LOG_SERVICE } from '../audit-log/audit-log.service.interface';
+
 @Injectable()
 export class MemberService implements MemberServiceInterface {
   constructor(
@@ -48,19 +51,28 @@ export class MemberService implements MemberServiceInterface {
     private readonly penaltyRepository: PenaltyRepositoryInterface,
     @Inject(CONTRIBUTION_REPOSITORY)
     private readonly contributionRepository: ContributionRepositoryInterface,
+    @Inject(AUDIT_LOG_SERVICE)
+    private readonly auditLogService: AuditLogServiceInterface,
   ) {}
 
   // ── IKM-2.2: POST /members ────────────────────────────────────────────────
 
   async createMember(params: CreateMemberParams): Promise<Member> {
     const existingByEmail = await this.userRepository.findByEmail(params.email);
+    let oldUserId: string | null = null;
     if (existingByEmail) {
-      throw new ConflictException('Email is already registered');
+      if (existingByEmail.status !== 'EXITED') {
+        throw new ConflictException('Email is already registered to an active account');
+      }
+      oldUserId = existingByEmail.id;
     }
 
     const existingByPhone = await this.userRepository.findByPhone(params.phone);
     if (existingByPhone) {
-      throw new ConflictException('Phone number is already registered');
+      if (existingByPhone.status !== 'EXITED') {
+        throw new ConflictException('Phone number is already registered to an active account');
+      }
+      if (!oldUserId) oldUserId = existingByPhone.id;
     }
 
     const passwordHash = await this.passwordHasher.hash(params.password);
@@ -76,13 +88,26 @@ export class MemberService implements MemberServiceInterface {
       ? new Date(params.joinedDate)
       : undefined;
 
-    return this.memberRepository.create({
+    const member = await this.memberRepository.create({
       userId: user.id,
       fullName: params.fullName,
       nationalId: params.nationalId,
       address: params.address,
       joinedDate,
     });
+
+    if (oldUserId && params.adminUserId) {
+      await this.auditLogService.recordLog({
+        adminUserId: params.adminUserId,
+        actionType: 'MEMBER_REJOINED',
+        entityName: 'Member',
+        entityId: member.id, // Using the new member's ID as the main entity
+        oldState: { oldUserId, oldStatus: 'EXITED' },
+        newState: { newUserId: user.id, newStatus: 'ACTIVE' },
+      });
+    }
+
+    return member;
   }
 
   // ── IKM-2.3: GET /members ─────────────────────────────────────────────────
@@ -184,13 +209,32 @@ export class MemberService implements MemberServiceInterface {
     const member = await this.memberRepository.findById(id);
     if (!member) throw new NotFoundException('Member not found');
 
+    if (member.status === 'EXITED') {
+      throw new BadRequestException(
+        'An exited member cannot be modified. They must rejoin as a new member.',
+      );
+    }
+
     if (params.status !== 'ACTIVE' && !params.reason?.trim()) {
       throw new BadRequestException(
         'A reason is required when suspending or exiting a member',
       );
     }
 
+    const oldStatus = member.status;
     await this.userRepository.updateStatus(member.userId, params.status);
+    
+    if (params.adminUserId) {
+      await this.auditLogService.recordLog({
+        adminUserId: params.adminUserId,
+        actionType: 'MEMBER_STATUS_CHANGED',
+        entityName: 'Member',
+        entityId: member.id,
+        oldState: { status: oldStatus },
+        newState: { status: params.status, reason: params.reason },
+      });
+    }
+
     return { id: member.id, status: params.status };
   }
 
