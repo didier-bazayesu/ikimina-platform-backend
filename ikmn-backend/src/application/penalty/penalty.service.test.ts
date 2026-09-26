@@ -55,12 +55,16 @@ describe('PenaltyService', () => {
       isOverdue: vi.fn(),
     } as unknown as Mocked<TimeProviderInterface>;
 
+    const mockEventEmitter = { emit: vi.fn() };
+
     service = new PenaltyService(
       penaltyRepo,
       obligationRepo,
       settingsRepo,
       storageAdapter,
       timeProvider,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockEventEmitter as any,
     );
   });
 

@@ -69,6 +69,12 @@ export interface PenaltyServiceInterface {
     reason: string,
     adminUserId: string,
   ): Promise<PenaltyPayment>;
+  flagPenaltyPayment(
+    id: string,
+    reason: string,
+    message: string,
+    adminUserId: string,
+  ): Promise<PenaltyPayment>;
   waivePenalty(id: string): Promise<Penalty>;
 }
 

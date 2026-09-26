@@ -31,6 +31,7 @@ import { SubmitPenaltyPaymentDto } from './submit-penalty-payment.dto';
 import { ListPenaltiesDto } from './list-penalties.dto';
 import { ListPenaltyPaymentsDto } from './list-penalty-payments.dto';
 import { RejectPenaltyPaymentDto } from './reject-penalty-payment.dto';
+import { FlagPaymentDto } from '../payment/flag-payment.dto';
 import type { PenaltyServiceInterface } from '../../application/penalty/penalty.service.interface';
 import { PENALTY_SERVICE } from '../../application/penalty/penalty.service.interface';
 import type { MemberRepositoryInterface } from '../../application/member/member.repository.interface';
@@ -205,6 +206,33 @@ export class PenaltyController {
       success: true,
       data: result,
       message: 'Payment rejected',
+    };
+  }
+
+  @Patch('penalty-payments/:id/flag')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Admin flags a pending penalty payment to send a message' })
+  @ApiResponse({ status: 200, description: 'Payment flagged and message sent' })
+  @ApiResponse({ status: 400, description: 'Missing reason or message' })
+  @ApiResponse({ status: 401, description: 'Unauthenticated' })
+  @ApiResponse({ status: 403, description: 'Admin role required' })
+  @ApiResponse({ status: 404, description: 'Payment not found' })
+  @ApiResponse({ status: 409, description: 'Payment is not currently PENDING' })
+  async flagPayment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: FlagPaymentDto,
+  ) {
+    const result = await this.service.flagPenaltyPayment(
+      id,
+      dto.reason,
+      dto.message,
+      user.id,
+    );
+    return {
+      success: true,
+      data: result,
+      message: 'Message sent to member successfully',
     };
   }
 

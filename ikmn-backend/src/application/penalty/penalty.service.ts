@@ -26,6 +26,7 @@ import type { TimeProviderInterface } from '../common/time-provider.interface';
 import { TIME_PROVIDER } from '../common/time-provider.interface';
 import type { Penalty } from './penalty';
 import type { PenaltyPayment } from './penalty-payment';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 
 @Injectable()
 export class PenaltyService implements PenaltyServiceInterface {
@@ -42,6 +43,7 @@ export class PenaltyService implements PenaltyServiceInterface {
     private readonly storageAdapter: StorageAdapterInterface,
     @Inject(TIME_PROVIDER)
     private readonly timeProvider: TimeProviderInterface,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async generatePenaltiesForOverdueObligations(): Promise<Penalty[]> {
@@ -217,5 +219,33 @@ export class PenaltyService implements PenaltyServiceInterface {
     const waived = await this.penaltyRepo.updatePenaltyStatus(id, 'WAIVED');
     if (!waived) throw new ConflictException('Failed to waive penalty');
     return waived;
+  }
+
+  async flagPenaltyPayment(
+    id: string,
+    reason: string,
+    message: string,
+    adminUserId: string,
+  ): Promise<PenaltyPayment> {
+    const payment = await this.penaltyRepo.findPenaltyPaymentById(id);
+    if (!payment) {
+      throw new NotFoundException('Penalty payment not found');
+    }
+    if (payment.status !== 'PENDING') {
+      throw new BadRequestException('Only pending payments can be flagged');
+    }
+    
+    // Emit event to trigger notification
+    const penalty = await this.penaltyRepo.findPenaltyById(payment.penaltyId);
+    if (penalty) {
+      this.eventEmitter.emit('payment.flagged', {
+        memberId: penalty.memberId,
+        reason,
+        message,
+      });
+    }
+
+    this.logger.log(`Penalty payment ${id} flagged by admin ${adminUserId} with reason: ${reason}`);
+    return payment;
   }
 }
