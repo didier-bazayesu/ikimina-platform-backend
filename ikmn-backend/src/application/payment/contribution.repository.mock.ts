@@ -136,11 +136,13 @@ export class ContributionRepositoryMock implements ContributionRepositoryInterfa
     );
     return { ...payment, allocations: paymentAllocations };
   }
-  async getApprovedTotalsForMembers(memberIds: string[]): Promise<Map<string, number>> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getApprovedTotalsForMembers(_memberIds: string[]): Promise<Map<string, number>> {
     return new Map();
   }
 
-  async getLastApprovedPaymentDatesForMembers(memberIds: string[]): Promise<Map<string, Date>> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async getLastApprovedPaymentDatesForMembers(_memberIds: string[]): Promise<Map<string, Date>> {
     return new Map();
   }
 }
