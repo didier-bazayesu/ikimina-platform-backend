@@ -49,7 +49,7 @@ export class UserRepository implements UserRepositoryInterface {
 
   async findByEmail(email: string): Promise<User | null> {
     const rows = await this.db.query<UserRow>(
-      `SELECT * FROM users WHERE email = $1`,
+      `SELECT * FROM users WHERE email = $1 ORDER BY CASE WHEN status = 'EXITED' THEN 1 ELSE 0 END, created_at DESC LIMIT 1`,
       [email],
     );
     return rows[0] ? toDomain(rows[0]) : null;
@@ -57,7 +57,7 @@ export class UserRepository implements UserRepositoryInterface {
 
   async findByPhone(phone: string): Promise<User | null> {
     const rows = await this.db.query<UserRow>(
-      `SELECT * FROM users WHERE phone = $1`,
+      `SELECT * FROM users WHERE phone = $1 ORDER BY CASE WHEN status = 'EXITED' THEN 1 ELSE 0 END, created_at DESC LIMIT 1`,
       [phone],
     );
     return rows[0] ? toDomain(rows[0]) : null;
