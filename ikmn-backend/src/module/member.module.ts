@@ -8,6 +8,7 @@ import { AuthenticationModule } from './authentication.module';
 import { MonthlyObligationModule } from './monthly-obligation.module';
 import { ContributionModule } from './contribution.module';
 import { PenaltyModule } from './penalty.module';
+import { AuditLogModule } from './audit-log.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PenaltyModule } from './penalty.module';
     forwardRef(() => MonthlyObligationModule),
     forwardRef(() => ContributionModule),
     forwardRef(() => PenaltyModule),
+    AuditLogModule,
   ],
   controllers: [MemberController],
   providers: [

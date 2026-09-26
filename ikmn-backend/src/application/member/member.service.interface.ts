@@ -9,6 +9,7 @@ export interface CreateMemberParams {
   nationalId?: string;
   address?: string;
   joinedDate?: string; // ISO date string from DTO
+  adminUserId?: string; // For audit logging
 }
 
 export interface UpdateMemberParams {
@@ -27,6 +28,7 @@ export interface UpdateOwnProfileParams {
 export interface UpdateMemberStatusParams {
   status: UserStatus;
   reason?: string;
+  adminUserId?: string; // For audit logging
 }
 
 export interface ListMembersParams {

@@ -60,8 +60,14 @@ export class MemberController {
     description: 'Email or phone already registered',
   })
   @ApiResponse({ status: 500, description: 'Unexpected error' })
-  async createMember(@Body() dto: CreateMemberDto) {
-    const member = await this.memberService.createMember(dto);
+  async createMember(
+    @Body() dto: CreateMemberDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const member = await this.memberService.createMember({
+      ...dto,
+      adminUserId: user.id,
+    });
     return { data: member, message: 'Member created successfully' };
   }
 
@@ -190,10 +196,12 @@ export class MemberController {
     )
     id: string,
     @Body() dto: UpdateMemberStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
     const result = await this.memberService.updateMemberStatus(id, {
       status: dto.status,
       reason: dto.reason,
+      adminUserId: user.id,
     });
     return { data: result, message: 'Member status updated' };
   }
