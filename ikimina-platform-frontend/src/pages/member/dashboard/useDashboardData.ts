@@ -27,9 +27,7 @@ interface PenaltyAPI {
   status: 'PAID' | 'UNPAID' | 'WAIVED'
 }
 
-interface SystemSettingsAPI {
-  monthlyShareAmount: number
-}
+
 
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 

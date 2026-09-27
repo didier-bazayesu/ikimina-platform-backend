@@ -1,7 +1,7 @@
 import type { ArgumentsHost, ExceptionFilter } from '@nestjs/common';
 import { Catch, HttpStatus, Logger } from '@nestjs/common';
 import type { Request, Response } from 'express';
-import { NotFoundError } from '../application';
+import { NotFoundError } from 'rxjs';
 import { buildErrorResponse, logException } from './error-response.util';
 
 @Catch(NotFoundError)
