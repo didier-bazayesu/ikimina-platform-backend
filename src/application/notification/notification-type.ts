@@ -1,4 +1,0 @@
-export enum NotificationType {
-  PAYMENT_APPROVED = 'PAYMENT_APPROVED',
-  PENALTY_GENERATED = 'PENALTY_GENERATED',
-}
