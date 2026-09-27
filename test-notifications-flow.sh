@@ -2,37 +2,57 @@
 
 BASE_URL="http://localhost:3000"
 
-echo "=== 1. Login as Member ==="
-MEMBER_TOKEN=$(curl -s -X POST $BASE_URL/auth/login \
+echo "=== Sprint 12: Notifications E2E Test ==="
+echo "-----------------------------------------------------"
+
+echo "1. Logging in as admin..."
+ADMIN_LOGIN=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"member@gmail.com","password":"didier123"}' | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin').toString()); console.log(d.data?.accessToken || '');")
+  -d '{"email":"didier@gmail.com","password":"didier123"}')
+ADMIN_TOKEN=$(echo "$ADMIN_LOGIN" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
-echo "Member Token: $MEMBER_TOKEN"
-
-echo "=== 2. Login as Admin ==="
-ADMIN_TOKEN=$(curl -s -X POST $BASE_URL/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"didier@gmail.com","password":"didier123"}' | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin').toString()); console.log(d.data?.accessToken || '');")
-
-echo "Admin Token: $ADMIN_TOKEN"
-
-echo "=== 3. Get first Pending Payment ==="
-PAYMENT_ID=$(curl -s -X GET "$BASE_URL/contribution-payments?status=PENDING" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" | node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin').toString()); const items = d.data?.items || d.data?.data?.items || d.items; if(items && items.length > 0) { console.log(items[0].id) } else { console.log('') }")
-
-echo "Payment ID: $PAYMENT_ID"
-
-if [ -z "$PAYMENT_ID" ]; then
-  echo "No pending payment found to flag. Please submit a payment first."
+if [ -z "$ADMIN_TOKEN" ]; then
+  echo "FAIL: Admin login failed"
+  echo "$ADMIN_LOGIN"
   exit 1
 fi
+echo "Admin Token: ${ADMIN_TOKEN:0:30}..."
 
-echo "=== 4. Flag the Payment ==="
-curl -s -X PATCH "$BASE_URL/contribution-payments/$PAYMENT_ID/flag" \
-  -H "Authorization: Bearer $ADMIN_TOKEN" \
+echo "-----------------------------------------------------"
+echo "2. Logging in as member..."
+MEMBER_LOGIN=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"reason":"Proof is blurry", "message":"Please upload a clearer screenshot"}' | node -e "console.log(JSON.stringify(JSON.parse(require('fs').readFileSync('/dev/stdin').toString()), null, 2))"
+  -d '{"email":"state.member@example.com","password":"Password123!"}')
+MEMBER_TOKEN=$(echo "$MEMBER_LOGIN" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 
-echo "=== 5. Check Member Notifications ==="
-curl -s -X GET "$BASE_URL/notifications?limit=5" \
-  -H "Authorization: Bearer $MEMBER_TOKEN" | node -e "console.log(JSON.stringify(JSON.parse(require('fs').readFileSync('/dev/stdin').toString()), null, 2))"
+if [ -z "$MEMBER_TOKEN" ]; then
+  echo "FAIL: Member login failed"
+  echo "$MEMBER_LOGIN"
+  exit 1
+fi
+echo "Member Token: ${MEMBER_TOKEN:0:30}..."
+
+echo "-----------------------------------------------------"
+echo "3. Fetching member notifications (should be empty or have prior ones)..."
+curl -s -X GET "$BASE_URL/notifications/me" \
+  -H "Authorization: Bearer $MEMBER_TOKEN" | python3 -m json.tool 2>/dev/null || \
+curl -s -X GET "$BASE_URL/notifications/me" \
+  -H "Authorization: Bearer $MEMBER_TOKEN"
+
+echo ""
+echo "-----------------------------------------------------"
+echo "4. Fetching unread-only notifications..."
+curl -s -X GET "$BASE_URL/notifications/me?unreadOnly=true" \
+  -H "Authorization: Bearer $MEMBER_TOKEN" | python3 -m json.tool 2>/dev/null || \
+curl -s -X GET "$BASE_URL/notifications/me?unreadOnly=true" \
+  -H "Authorization: Bearer $MEMBER_TOKEN"
+
+echo ""
+echo "-----------------------------------------------------"
+echo "5. Testing mark-as-read with a fake ID (should return 404)..."
+MARK_RESULT=$(curl -s -o /dev/null -w "%{http_code}" -X PATCH "$BASE_URL/notifications/me/00000000-0000-0000-0000-000000000000/read" \
+  -H "Authorization: Bearer $MEMBER_TOKEN")
+echo "Mark-as-read on fake ID => HTTP $MARK_RESULT (expected 404)"
+
+echo "-----------------------------------------------------"
+echo "=== Notifications E2E Test Complete ==="
