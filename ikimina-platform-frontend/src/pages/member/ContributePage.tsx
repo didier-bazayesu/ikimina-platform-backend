@@ -15,7 +15,7 @@ interface ObligationAPI {
   isOverdue: boolean
 }
 
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
 
 export function ContributePage() {
   const navigate = useNavigate()

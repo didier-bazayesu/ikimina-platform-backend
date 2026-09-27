@@ -30,6 +30,7 @@ interface ContribPayment {
 }
 
 interface PenPayment {
+  memberId?: string
   id: string
   penaltyId: string
   amount: number
@@ -529,7 +530,7 @@ export function ApprovalsPage() {
                     Will be allocated to
                   </p>
                   <div className="space-y-2 mb-4">
-                    {approvingCard.contribution.allocations.map(alloc => (
+                    {(approvingCard.contribution.allocations || []).map(alloc => (
                       <div key={alloc.id} className="flex justify-between items-center text-sm font-medium text-text-main">
                         <span>{alloc.month && alloc.year ? `${MONTHS[alloc.month - 1]} ${alloc.year}` : 'Unknown Period'}</span>
                         <span className="text-terracotta">{formatNumber(alloc.amount)}</span>
@@ -540,7 +541,7 @@ export function ApprovalsPage() {
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>+{approvingCard.contribution.allocations.length} shares</span>
+                    <span>+{(approvingCard.contribution.allocations?.length || 0)} shares</span>
                   </div>
                 </div>
               )}
@@ -599,7 +600,7 @@ export function ApprovalsPage() {
               <div className="flex flex-wrap items-center justify-center gap-2 mb-8">
                 {approvedCard.contribution && (
                   <span className="px-3 py-1 rounded-full bg-green-tint text-brand-green text-[11px] font-bold">
-                    +{approvedCard.contribution.allocations.length} shares
+                    +{(approvedCard.contribution.allocations?.length || 0)} shares
                   </span>
                 )}
                 {/* Fallback for penalties cleared; hard to derive reliably from this endpoint alone without more backend fields, but we show the badge pattern */}

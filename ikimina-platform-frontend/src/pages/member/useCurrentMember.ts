@@ -16,7 +16,7 @@ interface BackendMemberProfile {
 }
 
 export function useCurrentMember() {
-  const { data: rawData, isLoading } = useQuery({
+  const { data: rawData } = useQuery({
     queryKey: ['currentMember'],
     queryFn: async () => {
       const res = await api.get<any>('/members/me')
