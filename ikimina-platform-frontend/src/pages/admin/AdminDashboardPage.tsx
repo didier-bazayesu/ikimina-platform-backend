@@ -1,76 +1,92 @@
-import { useQuery } from '@tanstack/react-query'
-import { api } from '../../api/client'
-import { formatNumber } from '../../lib/format'
-import { Avatar } from '../../components/ui/Avatar'
-import { useAuth } from '../../auth/AuthContext'
-import { Link } from 'react-router-dom'
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { formatNumber } from "../../lib/format";
+import { Avatar } from "../../components/ui/Avatar";
+import { useAuth } from "../../auth/AuthContext";
+import { Link } from "react-router-dom";
 
 interface PendingApprovalItem {
-  id: string
-  memberId: string
-  memberName: string
-  amount: number
-  paymentDate: Date
-  type: 'Contribution' | 'Penalty'
+  id: string;
+  memberId: string;
+  memberName: string;
+  amount: number;
+  paymentDate: Date;
+  type: "Contribution" | "Penalty";
 }
 
 interface AdminDashboardAPIResponse {
-  totalActiveMembers: number
-  availableBalance: number
-  pendingContributionPayments: number
-  pendingPenaltyPayments: number
-  totalWithdrawalsCurrentMonth: number
-  totalContributionsAmount: number
-  unpaidPenaltiesAmount: number
-  totalPenaltiesGenerated: number
-  paidObligationsCurrentMonth: number
-  totalObligationsCurrentMonth: number
-  recentPendingApprovals: PendingApprovalItem[]
+  totalActiveMembers: number;
+  availableBalance: number;
+  pendingContributionPayments: number;
+  pendingPenaltyPayments: number;
+  totalWithdrawalsCurrentMonth: number;
+  totalContributionsAmount: number;
+  unpaidPenaltiesAmount: number;
+  totalPenaltiesGenerated: number;
+  paidObligationsCurrentMonth: number;
+  totalObligationsCurrentMonth: number;
+  recentPendingApprovals: PendingApprovalItem[];
 }
 
 export function AdminDashboardPage() {
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['adminDashboard'],
+    queryKey: ["adminDashboard"],
     queryFn: async () => {
-      const res = await api.get<AdminDashboardAPIResponse>('/dashboards/admin')
-      return res.data || (res as any)
-    }
-  })
+      const res = await api.get<AdminDashboardAPIResponse>("/dashboards/admin");
+      return res.data || (res as any);
+    },
+  });
 
   if (isLoading) {
-    return <div className="animate-pulse h-64 bg-white rounded-xl border border-border-warm"></div>
+    return (
+      <div className="animate-pulse h-64 bg-white rounded-xl border border-border-warm"></div>
+    );
   }
 
   if (error || !data) {
-    return <div className="text-terracotta">Failed to load admin dashboard.</div>
+    return (
+      <div className="text-terracotta">Failed to load admin dashboard.</div>
+    );
   }
 
-  const dashData = ((data as any).data || data) as AdminDashboardAPIResponse
-  const pendingApprovalsCount = dashData.pendingContributionPayments + dashData.pendingPenaltyPayments
-  
-  const collectionRate = dashData.totalObligationsCurrentMonth > 0 
-    ? Math.round((dashData.paidObligationsCurrentMonth / dashData.totalObligationsCurrentMonth) * 100) 
-    : 0
+  const dashData = ((data as any).data || data) as AdminDashboardAPIResponse;
+  const pendingApprovalsCount =
+    dashData.pendingContributionPayments + dashData.pendingPenaltyPayments;
 
-  const pendingList = dashData.recentPendingApprovals || []
+  const collectionRate =
+    dashData.totalObligationsCurrentMonth > 0
+      ? Math.round(
+          (dashData.paidObligationsCurrentMonth /
+            dashData.totalObligationsCurrentMonth) *
+            100,
+        )
+      : 0;
 
-  
+  const pendingList = dashData.recentPendingApprovals || [];
+
   const getInitials = (name?: string) => {
-    if (!name) return '??'
-    return name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
-  }
+    if (!name) return "??";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .substring(0, 2)
+      .toUpperCase();
+  };
 
   const timeAgo = (dateStr: string) => {
-    const hours = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60))
-    if (hours < 24) return `${hours} hours ago`
-    return `${Math.floor(hours / 24)} days ago`
-  }
+    const hours = Math.floor(
+      (new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60),
+    );
+    if (hours < 24) return `${hours} hours ago`;
+    return `${Math.floor(hours / 24)} days ago`;
+  };
 
   // Fallback if admin has no member profile
-  const displayName = user?.email ? user.email.split('@')[0] : 'Admin'
-  const displayInitials = displayName.substring(0, 2).toUpperCase()
+  const displayName = user?.email ? user.email.split("@")[0] : "Admin";
+  const displayInitials = displayName.substring(0, 2).toUpperCase();
 
   return (
     <div className="max-w-[1200px]">
@@ -94,12 +110,12 @@ export function AdminDashboardPage() {
 
       {/* Top 3 Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div className="bg-brand-green rounded-xl p-5 shadow-sm text-white flex flex-col justify-between h-32">
+        <div className="bg-brand-green rounded-xl p-5 shadow-sm text-white flex flex-col justify-between min-h-[8rem] gap-3">
           <div className="text-[11px] font-bold tracking-wider uppercase opacity-90">
             Total Fund Value
           </div>
           <div>
-            <div className="text-3xl font-bold font-heading mb-1">
+            <div className="text-2xl sm:text-3xl font-bold font-heading mb-1 break-words">
               {formatNumber(dashData.availableBalance || 0)}
             </div>
             <div className="text-xs opacity-90">
@@ -108,12 +124,12 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-border-warm rounded-xl p-5 shadow-sm flex flex-col justify-between h-32">
+        <div className="bg-white border border-border-warm rounded-xl p-5 shadow-sm flex flex-col justify-between min-h-[8rem] gap-3">
           <div className="text-[11px] font-bold tracking-wider uppercase text-text-muted">
             Total Contributions
           </div>
           <div>
-            <div className="text-3xl font-bold font-heading text-text-main mb-1">
+            <div className="text-2xl sm:text-3xl font-bold font-heading text-text-main mb-1 break-words">
               {formatNumber(dashData.totalContributionsAmount || 0)}
             </div>
             <div className="text-xs text-text-muted">
@@ -122,12 +138,12 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-border-warm rounded-xl p-5 shadow-sm flex flex-col justify-between h-32">
+        <div className="bg-white border border-border-warm rounded-xl p-5 shadow-sm flex flex-col justify-between min-h-[8rem] gap-3">
           <div className="text-[11px] font-bold tracking-wider uppercase text-text-muted">
             Total Withdrawals
           </div>
           <div>
-            <div className="text-3xl font-bold font-heading text-text-main mb-1">
+            <div className="text-2xl sm:text-3xl font-bold font-heading text-text-main mb-1 break-words">
               {formatNumber(dashData.totalWithdrawalsCurrentMonth || 0)}
             </div>
             <div className="text-xs text-text-muted">Current Month</div>
@@ -136,8 +152,8 @@ export function AdminDashboardPage() {
       </div>
 
       {/* Row 2: 4 smaller cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between h-24">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[6rem]">
           <div className="text-[10px] font-bold tracking-wider uppercase text-text-muted">
             Members
           </div>
@@ -149,7 +165,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-terracotta-tint border border-terracotta/30 rounded-xl p-4 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-terracotta-tint border border-terracotta/30 rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[6rem]">
           <div className="text-[10px] font-bold tracking-wider uppercase text-terracotta">
             Pending Approvals
           </div>
@@ -163,7 +179,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[6rem]">
           <div className="text-[10px] font-bold tracking-wider uppercase text-text-muted">
             Unpaid Penalties
           </div>
@@ -177,7 +193,7 @@ export function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between h-24">
+        <div className="bg-white border border-border-warm rounded-xl p-4 shadow-sm flex flex-col justify-between min-h-[6rem]">
           <div className="text-[10px] font-bold tracking-wider uppercase text-text-muted">
             Collection Rate
           </div>
@@ -197,7 +213,7 @@ export function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left side: Charts & list */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white border border-border-warm rounded-xl p-6 shadow-sm">
+          <div className="bg-white border border-border-warm rounded-xl p-4 sm:p-6 shadow-sm">
             <div className="flex items-center justify-between mb-8">
               <h3 className="font-semibold text-text-main text-sm">
                 Contributions vs withdrawals
@@ -215,7 +231,7 @@ export function AdminDashboardPage() {
             </div>
 
             {/* Bar chart matching screenshot */}
-            <div className="h-40 flex items-end justify-between px-2 gap-4">
+            <div className="h-40 flex items-end justify-between px-2 gap-2 sm:gap-4">
               {[
                 { m: "Jan", in: 95, out: 5 },
                 { m: "Feb", in: 98, out: 0 },
@@ -264,25 +280,31 @@ export function AdminDashboardPage() {
                 pendingList.map((app, i) => (
                   <div
                     key={i}
-                    className="flex items-center justify-between p-4 hover:bg-black/5 transition-colors text-sm"
+                    className="flex items-center justify-between gap-3 p-4 hover:bg-black/5 transition-colors text-sm"
                   >
-                    <div className="flex items-center gap-3 w-1/3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div
-                        className={`w-8 h-8 rounded-full text-white flex items-center justify-center text-xs font-bold ${app.type === "Penalty" ? "bg-terracotta" : "bg-brand-green"}`}
+                        className={`w-8 h-8 shrink-0 rounded-full text-white flex items-center justify-center text-xs font-bold ${app.type === "Penalty" ? "bg-terracotta" : "bg-brand-green"}`}
                       >
                         {getInitials(app.memberName)}
                       </div>
-                      <span className="font-medium text-text-main truncate">
-                        {app.memberName || "Unknown Member"}
-                      </span>
+                      <div className="min-w-0">
+                        <div className="font-medium text-text-main truncate">
+                          {app.memberName || "Unknown Member"}
+                        </div>
+                        <div className="sm:hidden text-xs text-text-muted">
+                          {app.type} &middot;{" "}
+                          {timeAgo(app.paymentDate as unknown as string)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-text-main text-right w-1/5">
+                    <div className="text-text-main text-right shrink-0">
                       {formatNumber(app.amount)} RWF
                     </div>
-                    <div className="text-text-muted w-1/4 text-center text-xs">
+                    <div className="hidden sm:block text-text-muted text-center text-xs w-24">
                       {app.type}
                     </div>
-                    <div className="text-text-muted text-right w-1/5 text-xs">
+                    <div className="hidden sm:block text-text-muted text-right text-xs w-24">
                       {timeAgo(app.paymentDate as unknown as string)}
                     </div>
                   </div>
@@ -298,7 +320,7 @@ export function AdminDashboardPage() {
 
         {/* Right side: On-time collection pie chart */}
         <div>
-          <div className="bg-white border border-border-warm rounded-xl p-6 shadow-sm h-full flex flex-col">
+          <div className="bg-white border border-border-warm rounded-xl p-4 sm:p-6 shadow-sm h-full flex flex-col">
             <h3 className="font-semibold text-text-main text-sm mb-8">
               On-time collection
             </h3>
