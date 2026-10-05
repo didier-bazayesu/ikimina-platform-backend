@@ -33,6 +33,7 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
   const [isEditing, setIsEditing] = useState(false)
   const [isConfirmingStatus, setIsConfirmingStatus] = useState(false)
   const [isConfirmingExit, setIsConfirmingExit] = useState(false)
+    const [isRecordingOnBehalf, setIsRecordingOnBehalf] = useState(false)
   const initials = member.fullName.split(' ').filter(Boolean).map(n => n[0]).join('').substring(0, 2).toUpperCase()
   
   const isActive = member.status === 'ACTIVE'
@@ -234,9 +235,10 @@ function MemberDetailView({ member, onBack }: { member: MemberWithStats; onBack:
             </p>
           </div>
         </div>
-        <Button variant="outline" className="whitespace-nowrap bg-brand-green/10 text-brand-green border-0 hover:bg-brand-green/20">
+        <Button variant="outline" onClick={() => setIsRecordingOnBehalf(true)} className="whitespace-nowrap bg-brand-green/10 text-brand-green border-0 hover:bg-brand-green/20">
           Record on behalf
-        </Button>
+          </Button>
+          {isRecordingOnBehalf && <RecordOnBehalfModal member={member} onClose={() => setIsRecordingOnBehalf(false)} />}
       </div>
 
       {/* Stats */}
@@ -579,6 +581,129 @@ function AddMemberModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+
+function RecordOnBehalfModal({ member, onClose }: { member: MemberWithStats, onClose: () => void }) {
+  const queryClient = useQueryClient()
+  const [withPenalty, setWithPenalty] = useState(true)
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [notes, setNotes] = useState('')
+  const [selectedMonths, setSelectedMonths] = useState<string[]>([])
+
+  const { data: unpaidObligations = [], isLoading } = useQuery({
+    queryKey: ['adminUnpaidObligations', member.id],
+    queryFn: async () => {
+      const res = await api.get('/monthly-obligations', { params: { memberId: member.id, status: 'UNPAID', limit: 100 } })
+      return (res.data as any).data?.items || []
+    }
+  })
+
+  const recordMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        memberId: member.id,
+        obligationIds: selectedMonths,
+        amount: parseFloat(amount.replace(/,/g, '')),
+        paymentDate: date,
+        withPenalty,
+        notes
+      }
+      await api.post('/contribution-payments/record-on-behalf', payload)
+    },
+    onSuccess: () => {
+      toast.success('Payment recorded and auto-approved')
+      queryClient.invalidateQueries({ queryKey: ['adminMembers'] })
+      queryClient.invalidateQueries({ queryKey: ['adminDashboard'] })
+      onClose()
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message || 'Failed to record payment')
+    }
+  })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (selectedMonths.length === 0) return toast.error('Please select at least one month')
+    recordMutation.mutate()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/20 backdrop-blur-sm">
+      <div className="bg-[#FAF9F5] rounded-[2rem] shadow-xl max-w-[460px] w-full border border-[#EAE7DF] p-8">
+        <div className="flex items-start gap-4 mb-8">
+          <div className="w-12 h-12 rounded-full bg-[#C2593F] text-white flex items-center justify-center shrink-0 font-bold">
+            {member.fullName.substring(0,2).toUpperCase()}
+          </div>
+          <div>
+            <h2 className="text-xl font-heading font-bold text-[#1A1A1A] leading-tight">Record on behalf of {member.fullName.split(' ')[0]}</h2>
+            <p className="text-sm text-[#737373] mt-1">For a member who paid you in cash or off-app.</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="mb-6">
+            <label className="block text-[13px] font-bold text-[#1A1A1A] mb-2">Penalty included?</label>
+            <div className="flex p-1 bg-[#F1EFE7] rounded-xl">
+              <button type="button" onClick={() => setWithPenalty(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${withPenalty ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#737373] hover:text-[#1A1A1A]'}`}>With penalty</button>
+              <button type="button" onClick={() => setWithPenalty(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${!withPenalty ? 'bg-white shadow-sm text-[#1A1A1A]' : 'text-[#737373] hover:text-[#1A1A1A]'}`}>Without penalty</button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div>
+              <label className="block text-[13px] font-bold text-[#1A1A1A] mb-2">Amount</label>
+              <div className="relative">
+                <input type="text" required value={amount} onChange={e => setAmount(e.target.value.replace(/[^0-9,]/g, ''))} className="w-full bg-white border border-[#EAE7DF] rounded-xl pl-4 pr-10 py-3 text-[#1A1A1A] focus:outline-none focus:border-[#2A5C43] font-medium" placeholder="44,000" />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-[#737373]">RWF</span>
+              </div>
+            </div>
+            <div className="col-span-1">
+              <label className="block text-[13px] font-bold text-[#1A1A1A] mb-2">Months</label>
+              <div className="relative group">
+                <div className="w-full bg-white border border-[#EAE7DF] rounded-xl px-3 py-3 text-[#1A1A1A] text-[13px] truncate font-medium cursor-pointer flex items-center justify-between">
+                  <span>{selectedMonths.length === 0 ? 'Select' : `${selectedMonths.length} selected`}</span>
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+                <div className="absolute top-full left-0 w-[200px] mt-1 bg-white border border-[#EAE7DF] rounded-xl shadow-lg p-2 hidden group-hover:block z-10 max-h-48 overflow-y-auto">
+                  {isLoading ? <div className="p-2 text-xs text-[#737373]">Loading...</div> : unpaidObligations.map((ob: any) => (
+                    <label key={ob.id} className="flex items-center gap-2 p-2 hover:bg-[#FAF9F5] rounded-lg cursor-pointer">
+                      <input type="checkbox" checked={selectedMonths.includes(ob.id)} onChange={(e) => { if (e.target.checked) setSelectedMonths([...selectedMonths, ob.id]); else setSelectedMonths(selectedMonths.filter(id => id !== ob.id)); }} />
+                      <span className="text-[13px] font-medium">{format(new Date(ob.year, ob.month - 1), 'MMM yyyy')}</span>
+                    </label>
+                  ))}
+                  {!isLoading && unpaidObligations.length === 0 && <div className="p-2 text-xs text-[#737373]">No unpaid months</div>}
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-[13px] font-bold text-[#1A1A1A] mb-2">Date</label>
+              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-white border border-[#EAE7DF] rounded-xl px-2 py-3 text-[#1A1A1A] text-[13px] focus:outline-none focus:border-[#2A5C43] font-medium" />
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-[13px] text-[#737373] mb-2 font-bold">Proof / note (optional)</label>
+            <input type="text" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Received 44,000 in cash..." className="w-full bg-white border border-[#EAE7DF] rounded-xl px-4 py-3 text-[#1A1A1A] text-sm focus:outline-none focus:border-[#2A5C43] font-medium" />
+          </div>
+
+          <div className="bg-[#2A5C43]/10 text-[#2A5C43] p-4 rounded-xl text-sm font-medium flex gap-3 mb-8 items-start">
+            <svg className="w-5 h-5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p>Recorded by <strong>you</strong> and auto-approved. The entry is attributed to you in the audit log.</p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-6 py-3 rounded-xl border border-[#EAE7DF] font-bold text-[#1A1A1A] hover:bg-[#EAE7DF]/50 transition-colors bg-white">Cancel</button>
+            <button type="submit" disabled={recordMutation.isPending} className="px-6 py-3 rounded-xl bg-[#2A5C43] text-white font-bold hover:bg-[#2A5C43]/90 transition-colors disabled:opacity-50">{recordMutation.isPending ? 'Recording...' : 'Record & approve'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
 export function MembersPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [search, setSearch] = useState('')
@@ -744,11 +869,13 @@ export function MembersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block ${
-                        member.status === 'ACTIVE'
-                          ? 'bg-brand-green/10 text-brand-green'
-                          : 'bg-border-warm text-text-muted'
+                        member.status === 'ACTIVE' 
+                          ? 'bg-brand-green/10 text-brand-green' 
+                          : member.status === 'SUSPENDED'
+                            ? 'bg-terracotta/10 text-terracotta'
+                            : 'bg-border-warm text-text-muted'
                       }`}>
-                        {member.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+                        {member.status}
                       </span>
                     </td>
                   </tr>
